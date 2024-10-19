@@ -6,4 +6,5 @@ class Rake:
     self.config = config
 
   def go(self):
+    print('hello world')
     pass
