@@ -1,5 +1,5 @@
-import re, inspect
-from typing import Any, Dict, List, Literal, Set
+import re, inspect, sys
+from typing import Any, Dict, Literal, Set
 
 
 def is_file_type(typ: Literal['yaml', 'json'], filename: str) -> bool:
@@ -122,3 +122,20 @@ def is_none_keys(obj: Dict, *keys) -> bool:
         if key in obj and obj[key] is not None: return False
     
     return True
+
+
+def get_total_size(obj, seen=None):
+    size = sys.getsizeof(obj)
+    if seen is None:
+        seen = set()
+    obj_id = id(obj)
+    if obj_id in seen:
+        return 0
+    seen.add(obj_id)
+
+    if isinstance(obj, dict):
+        size += sum([get_total_size(k, seen) + get_total_size(v, seen) for k, v in obj.items()])
+    elif isinstance(obj, (list, tuple, set)):
+        size += sum([get_total_size(i, seen) for i in obj])
+    
+    return size

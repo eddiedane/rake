@@ -1,10 +1,11 @@
 import asyncio
-import re, json, os, yaml
+import re, json, os, yaml, time
 from typing import Dict, Any, List, Literal, Tuple
 from colorama import Fore, Style
 from slugify import slugify
+from tabulate import tabulate
 from playwright.async_api import async_playwright, Browser, BrowserContext, BrowserType, Page, Locator, Route
-from utils.helpers import pick, is_none_keys, is_numeric, is_file_type
+from utils.helpers import pick, is_none_keys, is_numeric, is_file_type, get_total_size
 from utils import notation, keypath
 
 
@@ -32,6 +33,9 @@ class Rake:
         self.__browser: Browser = None
         self.__config = config
         self.__state = {'data': {}, 'vars': {}, 'links': {}}
+        self.__start_time = 0
+        self.__total_opened_pages = 0
+
 
     async def start(self):
         try:
@@ -41,6 +45,9 @@ class Rake:
         finally:
             print(Fore.YELLOW + 'Finally' + Fore.RESET)
             await self.__close_browser()
+            print()
+            self.table()
+            print()
 
 
     def data(self, filepath: str | None = None) -> Dict | None:
@@ -53,6 +60,31 @@ class Rake:
         if not filepath: return self.__state['links']
 
         self.__output(filepath, state='links')
+
+
+    def table(self) -> None:
+        duration = str(int(time.time() - self.__start_time, 2)) + ' seconds'
+        data_size = str(round(get_total_size(self.__state['data'])/1024, 2)) + ' KBs'
+        mode = 'background' if not self.__config.get('browser', {}).get('show', False) else 'visible'
+        output = 'dict'
+
+        headers = [
+            Style.BRIGHT + 'Crawled Pages' + Style.NORMAL,
+            Style.BRIGHT + 'Mode' + Style.NORMAL,
+            Style.BRIGHT + 'Duration' + Style.NORMAL,
+            Style.BRIGHT + 'Data Size' + Style.NORMAL,
+            Style.BRIGHT + 'Output' + Style.NORMAL
+        ]
+
+        rows = [[
+            self.__total_opened_pages,
+            mode,
+            duration,
+            data_size,
+            output
+        ]]
+
+        print(tabulate(rows, headers, tablefmt="double_outline"))
 
 
     @staticmethod
@@ -71,6 +103,8 @@ class Rake:
         await self.__launch_browser()
 
         if 'rake' not in self.__config: return self.data()
+
+        self.__start_time = time.time()
 
         for page_conf in self.__config['rake']:
             links = self.__resolve_page_link(page_conf['link'])
@@ -165,6 +199,8 @@ class Rake:
             kwargs['timeout'] = browser_config['timeout']
         
         await page.goto(url, **kwargs)
+
+        self.__total_opened_pages += 1
 
         return page
 
@@ -511,3 +547,4 @@ class Rake:
                     print(Fore.GREEN + f'Outputting {state} to JSON: ' + Fore.BLUE + filepath + Fore.RESET)
 
                 json.dump(data, stream, indent=2, ensure_ascii=False)
+
