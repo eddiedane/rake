@@ -39,7 +39,11 @@ class Rake:
 
     async def start(self):
         try:
-            return (None, await self.__start())
+            await self.__start()
+
+            data = self.data()
+
+            return (None, data)
         except Exception as e:
             return (e, None)
         finally:
@@ -50,22 +54,31 @@ class Rake:
             print()
 
 
-    def data(self, filepath: str | None = None) -> Dict | None:
-        if not filepath: return self.__state['data']
+    def data(self, filepath: str | None = None) -> Dict:
+        output_filepaths = self.__get_output_filepaths()
 
-        self.__output(filepath)
+        if filepath:
+            output_filepaths.append(filepath)
+
+        for path in output_filepaths:
+            self.__output(path)
+
+        return self.__state['data']
 
 
-    def links(self, filepath: str | None = None) -> Dict | None:
-        if not filepath: return self.__state['links']
 
-        self.__output(filepath, state='links')
+    def links(self, filepath: str | None = None) -> Dict:
+        if not filepath: 
+            self.__output(filepath, state='links')
+            
+        return self.__state['links']
+
 
 
     def table(self) -> None:
-        duration = str(int(time.time() - self.__start_time, 2)) + ' seconds'
+        duration = str(int(time.time() - self.__start_time)) + ' seconds'
         data_size = str(round(get_total_size(self.__state['data'])/1024, 2)) + ' KBs'
-        mode = 'background' if not self.__config.get('browser', {}).get('show', False) else 'visible'
+        mode = 'headless' if not self.__config.get('browser', {}).get('show', False) else 'visible'
         output = 'dict'
 
         headers = [
@@ -98,7 +111,7 @@ class Rake:
         raise ValueError(Fore.RED + 'Unable to load unsupported config file type, ' + Fore.BLUE + filename + Fore.RESET)
 
 
-    async def __start(self):
+    async def __start(self) -> None:
 
         await self.__launch_browser()
 
@@ -133,8 +146,6 @@ class Rake:
                     await self.__interact(page, nodes)
 
                 await self.__close_pages()
-
-        return self.data()
     
 
     async def __launch_browser(self):
@@ -548,3 +559,24 @@ class Rake:
 
                 json.dump(data, stream, indent=2, ensure_ascii=False)
 
+
+    def __get_output_filepaths(self) -> List[str]:
+        output_path: str = self.__config.get('output', {}).get('path', '')
+        output_path = f'{output_path}/' if output_path else ''
+        output_name: str = self.__config.get('output', {}).get('name', '')
+        output_formats: List[str] = self.__config.get('output', {}).get('formats', [])
+
+        format_file_extension = {
+            'yaml': 'yml',
+            'json': 'json',
+        }
+
+        filepaths = []
+
+        for fmt in output_formats:
+            if not fmt.lower() in format_file_extension:
+                continue
+            
+            filepaths.append(f'{output_path}{output_name}.{format_file_extension[fmt.lower()]}')
+
+        return filepaths
