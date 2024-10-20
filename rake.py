@@ -49,9 +49,11 @@ class Rake:
         finally:
             print(Fore.YELLOW + 'Finally' + Fore.RESET)
             await self.__close_browser()
-            print()
-            self.table()
-            print()
+
+            if self.__config.get('logging', False):
+                print()
+                self.table()
+                print()
 
 
     def data(self, filepath: str | None = None) -> Dict:
@@ -79,7 +81,7 @@ class Rake:
         duration = str(int(time.time() - self.__start_time)) + ' seconds'
         data_size = str(round(get_total_size(self.__state['data'])/1024, 2)) + ' KBs'
         mode = 'headless' if not self.__config.get('browser', {}).get('show', False) else 'visible'
-        output = 'dict'
+        output = ', '.join([format.upper() for format in self.__config.get('output', {}).get('formats', [])] + ['dict'])
 
         headers = [
             Style.BRIGHT + 'Crawled Pages' + Style.NORMAL,
