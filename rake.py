@@ -63,7 +63,7 @@ class Rake:
 
 
     def table(self) -> None:
-        duration = str(int(time.time() - self.__start_time, 2)) + ' seconds'
+        duration = str(int(time.time() - self.__start_time)) + ' seconds'
         data_size = str(round(get_total_size(self.__state['data'])/1024, 2)) + ' KBs'
         mode = 'background' if not self.__config.get('browser', {}).get('show', False) else 'visible'
         output = 'dict'
