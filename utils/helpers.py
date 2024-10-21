@@ -1,5 +1,5 @@
 import re, inspect, sys
-from typing import Any, Dict, Literal, Set
+from typing import Any, Dict, Literal, Set, Tuple
 
 
 def is_file_type(typ: Literal['yaml', 'json'], filename: str) -> bool:
@@ -139,3 +139,35 @@ def get_total_size(obj, seen=None):
         size += sum([get_total_size(i, seen) for i in obj])
     
     return size
+
+
+def split_seconds(seconds) -> Tuple[int, int, int]:
+    hh = seconds // 3600
+    mm = (seconds % 3600) // 60
+    ss = seconds % 60
+
+    return (hh, mm, ss)
+
+
+def format_seconds(seconds: int) -> str:
+    hh, mm, ss = split_seconds(seconds)
+
+    return f'{hh:02}:{mm:02}:{ss:02}'
+
+
+def format_size(size: int) -> str:
+    kb: int = 1024
+    mb: int = kb * kb
+    sz: float = size
+    unit: str = 'B'
+
+    if size >= mb:
+        sz = round(size/mb, 2)
+        unit = 'MB'
+    elif size >= kb:
+        sz = round(size/kb, 2)
+        unit = 'KB'
+
+    if sz != 1.00: unit += 's'
+
+    return f'{sz} {unit}'

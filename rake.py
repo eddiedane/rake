@@ -5,7 +5,7 @@ from colorama import Fore, Style
 from slugify import slugify
 from tabulate import tabulate
 from playwright.async_api import async_playwright, Browser, BrowserContext, BrowserType, Page, Locator, Route
-from utils.helpers import pick, is_none_keys, is_numeric, is_file_type, get_total_size
+from utils.helpers import pick, is_none_keys, is_numeric, is_file_type, get_total_size, format_seconds, format_size
 from utils import notation, keypath
 
 
@@ -70,7 +70,6 @@ class Rake:
         return self.__state['data']
 
 
-
     def links(self, filepath: str | None = None) -> Dict:
         if not filepath: 
             self.__output(filepath, state='links')
@@ -79,16 +78,15 @@ class Rake:
 
 
     def table(self) -> None:
-        race_indicator = '*' if 'race' in self.__config else ''
-        duration = str(int(time.time() - self.__start_time)) + ' seconds'
-        data_size = str(round(get_total_size(self.__state['data'])/1024, 2)) + ' KBs'
+        duration = format_seconds(int(time.time() - self.__start_time))
+        data_size = format_size(get_total_size(self.__state['data']))
         mode = 'headless' if not self.__config.get('browser', {}).get('show', False) else 'visible'
         output = ', '.join([format.upper() for format in self.__config.get('output', {}).get('formats', [])] + ['dict'])
 
         headers = [
             Style.BRIGHT + 'Crawled Pages' + Style.NORMAL,
             Style.BRIGHT + 'Mode' + Style.NORMAL,
-            Style.BRIGHT + race_indicator + 'Duration' + Style.NORMAL,
+            Style.BRIGHT + 'Duration' + Style.NORMAL,
             Style.BRIGHT + 'Data Size' + Style.NORMAL,
             Style.BRIGHT + 'Output' + Style.NORMAL
         ]
