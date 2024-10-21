@@ -9,7 +9,9 @@ from utils.helpers import pick, is_none_keys, is_numeric, is_file_type, get_tota
 from utils import notation, keypath
 
 
-Config = Dict[Literal['browser', 'rake'], Dict]
+Config = Dict[Literal['browser', 'rake', 'output', 'logging', 'race'], Dict[str, Any] | bool]
+
+PageConfig = Dict[Literal['link', 'repeat', 'nodes'], str | Dict[str, Any]]
 
 NodeConfig = Dict[Literal['selector', 'all', 'range', 'links', 'data', 'nodes', 'actions', 'wait', 'contains', 'excludes'], int | str | bool | List | Dict]
 
@@ -47,7 +49,6 @@ class Rake:
         except Exception as e:
             return (e, None)
         finally:
-            print(Fore.YELLOW + 'Finally' + Fore.RESET)
             await self.__close_browser()
 
             if self.__config.get('logging', False):
@@ -121,34 +122,42 @@ class Rake:
 
         self.__start_time = time.time()
 
-        for page_conf in self.__config['rake']:
-            links = self.__resolve_page_link(page_conf['link'])
+        for page_config in self.__config['rake']:
+            links = self.__resolve_page_link(page_config['link'])
+
+            if self.__config.get('race', False):
+                await asyncio.gather(*[self.__open_page(page_config, link) for link in links])
+                continue
             
             for link in links:
-                page = await self.__new_page(link['url'])
-                self.__state['vars'] = link.get('metadata', {})
-                self.__state['vars']['_url'] = page.url
-
-                nodes = page_conf.get('nodes', [])
-
-                if not len(nodes):
-                    await self.__close_pages()
-                    continue
-                
-                if 'repeat' in page_conf:
-                    repeat = page_conf['repeat']
-
-                    if type(repeat) is int:
-                        for _ in range(repeat):
-                            await self.__interact(page, nodes)
-                    elif type(repeat) is dict:
-                        while await self.__should_repeat(page, repeat):
-                            await self.__interact(page, nodes)
-                else:
-                    await self.__interact(page, nodes)
-
-                await self.__close_pages()
+                await self.__open_page(page_config, link)
     
+
+    async def __open_page(self, config: PageConfig, link: Link) -> None:
+        page = await self.__new_page(link['url'])
+        self.__state['vars'] = link.get('metadata', {})
+        self.__state['vars']['_url'] = page.url
+
+        nodes = config.get('nodes', [])
+
+        if not len(nodes):
+            await self.__close_page(page)
+            return
+        
+        if 'repeat' in config:
+            repeat = config['repeat']
+
+            if type(repeat) is int:
+                for _ in range(repeat):
+                    await self.__interact(page, nodes)
+            elif type(repeat) is dict:
+                while await self.__should_repeat(page, repeat):
+                    await self.__interact(page, nodes)
+        else:
+            await self.__interact(page, nodes)
+
+        await self.__close_page(page)
+
 
     async def __launch_browser(self):
         playwright = await async_playwright().start()
@@ -218,15 +227,11 @@ class Rake:
         return page
 
 
-    async def __close_pages(self, start: int = 1, end: int = None) -> None:
-        page_slice: slice = slice(start, end, 1)
-
+    async def __close_page(self, page: Page) -> None:
         if self.__config.get('logging', False):
-            pages_url = [page.url for page in self.__browser_context.pages[page_slice]]
+            print(Fore.YELLOW + 'Closing page: ' + Fore.BLUE + page.url + Fore.RESET)
 
-            print(Fore.YELLOW + 'Closing page: ' + Fore.BLUE + ', '.join(pages_url) + Fore.RESET)
-
-        await asyncio.gather(*[page.close() for page in self.__browser_context.pages[page_slice]])
+        await page.close()
 
 
     async def __block_request(self, route: Route, types: List[str]) -> None:
