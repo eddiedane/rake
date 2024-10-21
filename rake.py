@@ -29,9 +29,7 @@ DOMRect = Dict[Literal['x', 'y', 'width', 'height', 'top', 'right', 'bottom', 'l
 
 
 class Rake:
-
     DEFAULT_LOGGING = False
-    DEFAULT_RACE = False
 
     def __init__(self, config: Dict[str, Any]):
         self.__browser_context: BrowserContext = None
@@ -81,7 +79,7 @@ class Rake:
 
 
     def table(self) -> None:
-        race_indicator = '*' if self.__config.get('race', Rake.DEFAULT_RACE) else ''
+        race_indicator = '*' if 'race' in self.__config else ''
         duration = str(int(time.time() - self.__start_time)) + ' seconds'
         data_size = str(round(get_total_size(self.__state['data'])/1024, 2)) + ' KBs'
         mode = 'headless' if not self.__config.get('browser', {}).get('show', False) else 'visible'
@@ -127,14 +125,30 @@ class Rake:
 
         for page_config in self.__config['rake']:
             links = self.__resolve_page_link(page_config['link'])
+            race = self.__config.get('race', 1)
+            queue = asyncio.Queue(maxsize=race)
+            tasks = [asyncio.create_task(self.__concurrent(queue, page_config)) for _ in range(race)]
 
-            if self.__config.get('race', Rake.DEFAULT_RACE):
-                await asyncio.gather(*[self.__open_page(page_config, link) for link in links])
-                continue
-            
             for link in links:
-                await self.__open_page(page_config, link)
-    
+                await queue.put(link)
+
+            await queue.join()
+
+            for _ in tasks:
+                await queue.put(None)
+
+            await asyncio.gather(*tasks)
+
+
+    async def __concurrent(self, queue: asyncio.Queue, config: PageConfig) -> None:
+        while True:
+            link: Link = await queue.get()
+
+            if link is None: break
+
+            await self.__open_page(config, link)
+            queue.task_done()
+
 
     async def __open_page(self, config: PageConfig, link: Link) -> None:
         page = await self.__new_page(link['url'])
