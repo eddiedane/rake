@@ -77,8 +77,8 @@ class Rake:
         return self.__state['links']
 
 
-
     def table(self) -> None:
+        race_indicator = '*' if self.__config.get('race', False) else ''
         duration = str(int(time.time() - self.__start_time)) + ' seconds'
         data_size = str(round(get_total_size(self.__state['data'])/1024, 2)) + ' KBs'
         mode = 'headless' if not self.__config.get('browser', {}).get('show', False) else 'visible'
@@ -87,7 +87,7 @@ class Rake:
         headers = [
             Style.BRIGHT + 'Crawled Pages' + Style.NORMAL,
             Style.BRIGHT + 'Mode' + Style.NORMAL,
-            Style.BRIGHT + 'Duration' + Style.NORMAL,
+            Style.BRIGHT + race_indicator + 'Duration' + Style.NORMAL,
             Style.BRIGHT + 'Data Size' + Style.NORMAL,
             Style.BRIGHT + 'Output' + Style.NORMAL
         ]
