@@ -30,6 +30,9 @@ DOMRect = Dict[Literal['x', 'y', 'width', 'height', 'top', 'right', 'bottom', 'l
 
 class Rake:
 
+    DEFAULT_LOGGING = False
+    DEFAULT_RACE = False
+
     def __init__(self, config: Dict[str, Any]):
         self.__browser_context: BrowserContext = None
         self.__browser: Browser = None
@@ -51,7 +54,7 @@ class Rake:
         finally:
             await self.__close_browser()
 
-            if self.__config.get('logging', False):
+            if self.__config.get('logging', Rake.DEFAULT_LOGGING):
                 print()
                 self.table()
                 print()
@@ -78,7 +81,7 @@ class Rake:
 
 
     def table(self) -> None:
-        race_indicator = '*' if self.__config.get('race', False) else ''
+        race_indicator = '*' if self.__config.get('race', Rake.DEFAULT_RACE) else ''
         duration = str(int(time.time() - self.__start_time)) + ' seconds'
         data_size = str(round(get_total_size(self.__state['data'])/1024, 2)) + ' KBs'
         mode = 'headless' if not self.__config.get('browser', {}).get('show', False) else 'visible'
@@ -125,7 +128,7 @@ class Rake:
         for page_config in self.__config['rake']:
             links = self.__resolve_page_link(page_config['link'])
 
-            if self.__config.get('race', False):
+            if self.__config.get('race', Rake.DEFAULT_RACE):
                 await asyncio.gather(*[self.__open_page(page_config, link) for link in links])
                 continue
             
@@ -182,7 +185,7 @@ class Rake:
 
 
     async def __close_browser(self) -> None:
-        if self.__config.get('logging', False):
+        if self.__config.get('logging', Rake.DEFAULT_LOGGING):
             print(Fore.YELLOW + 'Closing browser' + Fore.RESET)
 
         if self.__browser_context:
@@ -192,7 +195,7 @@ class Rake:
 
 
     async def __new_page(self, url: str) -> Page:
-        if self.__config.get('logging', False):
+        if self.__config.get('logging', Rake.DEFAULT_LOGGING):
             print(Fore.GREEN + Style.BRIGHT + 'Opening a new page: ' + Style.NORMAL + Fore.BLUE + url + Fore.RESET)
 
         page: Page = await self.__browser_context.new_page()
@@ -228,7 +231,7 @@ class Rake:
 
 
     async def __close_page(self, page: Page) -> None:
-        if self.__config.get('logging', False):
+        if self.__config.get('logging', Rake.DEFAULT_LOGGING):
             print(Fore.YELLOW + 'Closing page: ' + Fore.BLUE + page.url + Fore.RESET)
 
         await page.close()
@@ -256,7 +259,7 @@ class Rake:
 
                 locator: Locator = page.locator(node['selector'], **loc_kwargs)
 
-                if self.__config.get('logging', False):
+                if self.__config.get('logging', Rake.DEFAULT_LOGGING):
                     print(Fore.GREEN + 'Interacting with: ' + Fore.WHITE + Style.DIM + node['selector'] + Style.NORMAL + Fore.RESET)
 
                 if 'wait' in node:
@@ -313,7 +316,7 @@ class Rake:
                 if 'delay' in action: 
                     await loc.page.wait_for_timeout(action['delay'])
 
-                if not await loc.is_visible() and self.__config.get('logging', False):
+                if not await loc.is_visible() and self.__config.get('logging', Rake.DEFAULT_LOGGING):
                     print(Fore.YELLOW + 'Action may fail due to node being inaccessible or not visible: ' + Fore.WHITE + f'{self.__state['vars']['_node']}@{action['type']}')
                 
                 if action.get('dispatch', False) and t not in ['swipe_left', 'swipe_right']:
@@ -439,7 +442,7 @@ class Rake:
                 resolve_key=notation.find_item_key
             )
 
-            if self.__config.get('logging', False):
+            if self.__config.get('logging', Rake.DEFAULT_LOGGING):
                 print(Fore.GREEN + 'Extracting data to ' + Fore.CYAN + keypath.to_string(scope) + Fore.RESET)
 
             keypath.assign(value, self.__state['data'], scope, merge=True)
@@ -555,13 +558,13 @@ class Rake:
         with open(filepath, 'w') as stream:
 
             if is_file_type('yaml', filepath):
-                if self.__config.get('logging', False):
+                if self.__config.get('logging', Rake.DEFAULT_LOGGING):
                     print(Fore.GREEN + f'Outputting {state} to YAML: ' + Fore.BLUE + filepath + Fore.RESET)
 
                 yaml.dump(data, stream)
 
             if is_file_type('json', filepath):
-                if self.__config.get('logging', False):
+                if self.__config.get('logging', Rake.DEFAULT_LOGGING):
                     print(Fore.GREEN + f'Outputting {state} to JSON: ' + Fore.BLUE + filepath + Fore.RESET)
 
                 json.dump(data, stream, indent=2, ensure_ascii=False)
