@@ -1,12 +1,13 @@
 import asyncio
-import re, json, os, yaml, time
-from typing import Dict, Any, List, Literal, Tuple
+import re, json, os, importlib, time, shutil, yaml
+from typing import Dict, Any, List, Literal, Tuple, Callable
 from colorama import Fore, Style
 from slugify import slugify
 from tabulate import tabulate
+import pandas as pd
 from playwright.async_api import async_playwright, Browser, BrowserContext, BrowserType, Page, Locator, Route
-from rake.utils.helpers import pick, is_none_keys, is_numeric, is_file_type, get_total_size, format_seconds, format_size
-from rake.utils import notation, keypath
+from rake.utils.helpers import pick, is_none_keys, is_numeric, get_file_type, get_total_size, format_seconds, format_size
+from rake.utils import notation, keypath, helpers as util
 
 
 Config = Dict[Literal['browser', 'rake', 'output', 'logging', 'race'], Dict[str, Any] | bool]
@@ -61,20 +62,28 @@ class Rake:
 
 
     def data(self, filepath: str | None = None) -> Dict:
-        output_filepaths = self.__get_output_filepaths()
+        outputs = self.__get_outputs()
 
         if filepath:
-            output_filepaths.append(filepath)
+            outputs.append({
+                'type': get_file_type(filepath),
+                'path': filepath,
+                'transform': None
+            })
 
-        for path in output_filepaths:
-            self.__output(path)
+        for output in outputs:
+            self.__output(
+                output.get('path'),
+                output.get('type'),
+                transform=output.get('transform', None)
+            )
 
         return self.__state['data']
 
 
     def links(self, filepath: str | None = None) -> Dict:
         if not filepath: 
-            self.__output(filepath, state='links')
+            self.__output(filepath, get_file_type(filepath), state='links')
 
         return self.__state['links']
 
@@ -83,7 +92,7 @@ class Rake:
         duration = format_seconds(int(time.time() - self.__start_time))
         data_size = format_size(get_total_size(self.__state['data']))
         mode = 'headless' if not self.__config.get('browser', {}).get('show', False) else 'visible'
-        output = ', '.join([format.upper() for format in self.__config.get('output', {}).get('formats', [])] + ['dict'])
+        output = ', '.join([output['type'].upper() for output in self.__get_outputs()] + ['dict'])
 
         headers = [
             Style.BRIGHT + 'Crawled Pages' + Style.NORMAL,
@@ -107,9 +116,9 @@ class Rake:
     @staticmethod
     def load_config(filename: str) -> Dict:
         with open(filename, 'r') as file:
-            if is_file_type('yaml', filename):
+            if get_file_type(filename) == 'yaml':
                 return yaml.safe_load(file)
-            elif is_file_type('json', filename):
+            elif get_file_type(filename) == 'json':
                 return json.load(file)
             
         raise ValueError(Fore.RED + 'Unable to load unsupported config file type, ' + Fore.BLUE + filename + Fore.RESET)
@@ -562,46 +571,91 @@ class Rake:
         return (rng_start, rng_stop, rng_step)
 
 
-    def __output(self, filepath: str, state: str = 'data') -> None:
+    def __output(self, filepath: str, type: str, state: str = 'data', transform: str = None) -> None:
         if not filepath: return
 
         dir = os.path.dirname(filepath)
         data = self.__state[state]
+        transform_fn: Callable | None = None
+        transform_args: List[Dict | str] = [data, filepath]
+        count_args: int = 0
+        transform_temp: str | None = None
 
         if dir: os.makedirs(dir, exist_ok=True)
 
-        with open(filepath, 'w') as stream:
-
-            if is_file_type('yaml', filepath):
+        if transform:
+            transform_temp = f'{os.path.dirname(os.path.abspath(__file__))}/temp/{transform}.py'
+            shutil.copy(f'{transform}.py', transform_temp)
+            transform_module = importlib.import_module(f'rake.temp.{transform}')
+            transform_fn = transform_module.transform
+            count_args = util.count_required_args(transform_fn)
+        
+        match type:
+            case 'yaml':
                 if self.__config.get('logging', Rake.DEFAULT_LOGGING):
                     print(Fore.GREEN + f'Outputting {state} to YAML: ' + Fore.BLUE + filepath + Fore.RESET)
 
-                yaml.dump(data, stream)
+                if transform_fn:
+                    data = transform_fn(*transform_args[0:count_args])
 
-            if is_file_type('json', filepath):
+                # transform function should return None
+                # when file creation is also handled
+                if data is not None:
+                    with open(filepath, 'w') as stream:
+                        yaml.dump(data, stream)
+
+            case 'json':
                 if self.__config.get('logging', Rake.DEFAULT_LOGGING):
                     print(Fore.GREEN + f'Outputting {state} to JSON: ' + Fore.BLUE + filepath + Fore.RESET)
 
-                json.dump(data, stream, indent=2, ensure_ascii=False)
+                if transform_fn:
+                    data = transform_fn(*transform_args[0:count_args])
+
+                if data is not None:
+                    with open(filepath, 'w') as stream:
+                        json.dump(data, stream, indent=2, ensure_ascii=False)
+
+            case 'excel':
+                if self.__config.get('logging', Rake.DEFAULT_LOGGING):
+                    print(Fore.GREEN + f'Outputting {state} to Excel: ' + Fore.BLUE + filepath + Fore.RESET)
+
+                if transform_fn:
+                    data = transform_fn(*transform_args[0:count_args])
+
+                if data is not None:
+                    with pd.ExcelWriter(filepath) as writer:
+                        df = pd.DataFrame(data)
+                        df.to_excel(writer, index=False)
+
+        if transform_temp:
+            os.remove(transform_temp)
 
 
-    def __get_output_filepaths(self) -> List[str]:
+    def __get_outputs(self) ->  List[Dict[str, str]]:
         output_path: str = self.__config.get('output', {}).get('path', '')
         output_path = f'{output_path}/' if output_path else ''
         output_name: str = self.__config.get('output', {}).get('name', '')
-        output_formats: List[str] = self.__config.get('output', {}).get('formats', [])
-
+        formats: List[Dict | str] = self.__config.get('output', {}).get('formats', [])
+        resolved_formats: List[Dict] = []
         format_file_extension = {
             'yaml': 'yml',
             'json': 'json',
+            'excel': 'xlsx',
         }
 
-        filepaths = []
+        for format in formats:
+            format_config: Dict[str, str] = {}
 
-        for fmt in output_formats:
-            if not fmt.lower() in format_file_extension:
+            if type(format) is str:
+                format_config['type'] = format
+            else:
+                format_config = format.copy()
+
+            if format_config['type'] not in format_file_extension:
                 continue
-            
-            filepaths.append(f'{output_path}{output_name}.{format_file_extension[fmt.lower()]}')
 
-        return filepaths
+            format_config['path'] = f'{output_path}{output_name}.{format_file_extension[format_config['type'].lower()]}'
+            
+            resolved_formats.append(format_config)
+
+        return resolved_formats

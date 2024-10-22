@@ -137,7 +137,8 @@ def resolve(
         args_count = count_required_args(resolve_key)
         args = [path[i], value, vars, obj]
 
-        if args_count > 4: args += [obj] * (args_count - 4)
+        if args_count > 4:
+            args += [obj] * (args_count - 4)
 
         key = resolve_key(*args[0:args_count])
             

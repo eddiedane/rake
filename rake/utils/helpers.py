@@ -2,29 +2,15 @@ import re, inspect, sys
 from typing import Any, Dict, Literal, Set, Tuple
 
 
-def is_file_type(typ: Literal['yaml', 'json'], filename: str) -> bool:
-    """
-    Checks if a given filename matches a specific file type.
-
-    Parameters
-    ----------
-    typ : Literal['yaml', 'json']
-        The type of file to check.
-    filename : str
-        The name of the file to check.
-
-    Returns
-    -------
-    bool
-        True if the filename matches the given type, False otherwise.
-    """
-
-    if re.search(r'[^.]*\.(yaml|yml)$', filename) and typ == 'yaml':
-        return True
-    elif re.search(r'[^.]*\.json$', filename) and typ == 'json':
-        return True
+def get_file_type(filename: str) -> Literal['yaml', 'json', 'excel']:
+    if re.search(r'[^.]*\.(yaml|yml)$', filename):
+        return 'yaml'
+    elif re.search(r'[^.]*\.json$', filename):
+        return 'json'
+    elif re.search(r'[^.]*\.xlsx?$', filename):
+        return 'excel'
     
-    return False
+    return None
 
 
 def pick(obj: Dict, key_map: Set | Dict[str, str] = {}) -> Dict:
@@ -100,7 +86,7 @@ def count_required_args(func):
     required_args = sum(
         1 for param in sig.parameters.values()
         if param.default == inspect.Parameter.empty and
-           param.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.KEYWORD_ONLY)
+            param.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.KEYWORD_ONLY)
     )
     
     return required_args
