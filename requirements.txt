@@ -7,6 +7,7 @@ colorama==0.4.6
 comm==0.2.2
 debugpy==1.8.7
 decorator==5.1.1
+et-xmlfile==1.1.0
 executing==2.1.0
 greenlet==3.0.3
 idna==3.10
@@ -18,6 +19,7 @@ jupyter_core==5.7.2
 matplotlib-inline==0.1.7
 nest-asyncio==1.6.0
 numpy==2.1.2
+openpyxl==3.1.5
 packaging==24.1
 pandas==2.2.3
 parso==0.8.4
@@ -35,8 +37,6 @@ python-slugify==8.0.4
 pytz==2024.2
 PyYAML==6.0.2
 pyzmq==26.2.0
-# Editable Git install with no remote (rake==0.1)
--e /Users/eddie/Codespace/projects/rake
 requests==2.32.3
 setuptools==75.2.0
 six==1.16.0

@@ -5,7 +5,15 @@ setup(
     version='0.1',
     author='Eddie Dane',
     packages=find_packages(),
-    install_requires=[],
+    install_requires=[
+        'PyYAML',
+        'pandas',
+        'playwright',
+        'colorama',
+        'tabulate',
+        'python-slugify',
+        'click',
+    ],
     entry_points={
         'console_scripts': [
             'rakestart=rake.cli:main',
