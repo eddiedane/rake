@@ -5,8 +5,8 @@ from colorama import Fore, Style
 from slugify import slugify
 from tabulate import tabulate
 from playwright.async_api import async_playwright, Browser, BrowserContext, BrowserType, Page, Locator, Route
-from utils.helpers import pick, is_none_keys, is_numeric, is_file_type, get_total_size, format_seconds, format_size
-from utils import notation, keypath
+from rake.utils.helpers import pick, is_none_keys, is_numeric, is_file_type, get_total_size, format_seconds, format_size
+from rake.utils import notation, keypath
 
 
 Config = Dict[Literal['browser', 'rake', 'output', 'logging', 'race'], Dict[str, Any] | bool]
@@ -75,7 +75,7 @@ class Rake:
     def links(self, filepath: str | None = None) -> Dict:
         if not filepath: 
             self.__output(filepath, state='links')
-            
+
         return self.__state['links']
 
 
@@ -116,7 +116,6 @@ class Rake:
 
 
     async def __start(self) -> None:
-
         await self.__launch_browser()
 
         if 'rake' not in self.__config: return self.data()
@@ -561,7 +560,7 @@ class Rake:
         rng_step = 1 if rng_step == '_' else rng_step
 
         return (rng_start, rng_stop, rng_step)
-    
+
 
     def __output(self, filepath: str, state: str = 'data') -> None:
         if not filepath: return

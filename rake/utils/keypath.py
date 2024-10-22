@@ -1,5 +1,5 @@
 import re
-from utils.helpers import count_required_args
+from rake.utils.helpers import count_required_args
 from typing import Any, Callable, Dict, List
 
 def split(path: str, delimiter: str = '.') -> List[str]:
