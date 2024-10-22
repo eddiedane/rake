@@ -11,9 +11,11 @@ from utils import notation, keypath
 
 Config = Dict[Literal['browser', 'rake', 'output', 'logging', 'race'], Dict[str, Any] | bool]
 
-PageConfig = Dict[Literal['link', 'repeat', 'nodes'], str | Dict[str, Any]]
+PageConfig = Dict[Literal['link', 'interact'], str | Dict[str, Any]]
 
-NodeConfig = Dict[Literal['selector', 'all', 'range', 'links', 'data', 'nodes', 'actions', 'wait', 'contains', 'excludes'], int | str | bool | List | Dict]
+NodeConfig = Dict[Literal['selector', 'all', 'range', 'links', 'data', 'interact', 'actions', 'wait', 'contains', 'excludes'], int | str | bool | List | Dict]
+
+InteractConfig = Dict[Literal['repeat', 'nodes'], int |Dict[str, Any]]
 
 LinkConfig = Dict[Literal['name', 'url', 'metadata'], str | Dict[str, Any]]
 
@@ -153,24 +155,13 @@ class Rake:
         self.__state['vars'] = link.get('metadata', {})
         self.__state['vars']['_url'] = page.url
 
-        nodes = config.get('nodes', [])
-
-        if not len(nodes):
+        if 'interact' not in config:
             await self.__close_page(page)
             return
-        
-        if 'repeat' in config:
-            repeat = config['repeat']
 
-            if type(repeat) is int:
-                for _ in range(repeat):
-                    await self.__interact(page, nodes)
-            elif type(repeat) is dict:
-                while await self.__should_repeat(page, repeat):
-                    await self.__interact(page, nodes)
-        else:
-            await self.__interact(page, nodes)
+        interactions = config.get('interact')
 
+        await self.__interact(page, interactions)
         await self.__close_page(page)
 
 
@@ -256,12 +247,25 @@ class Rake:
             await route.continue_()
     
 
-    async def __interact(self, page: Page, nodes: List[NodeConfig]) -> None:
+    async def __interact(self, page: Page, interactions: InteractConfig) -> None:
+        if 'repeat' in interactions:
+            repeat = interactions['repeat']
+
+            if type(repeat) is int:
+                for _ in range(repeat):
+                    await self.__run_nodes(page, interactions['nodes'])
+            elif type(repeat) is dict:
+                while await self.__should_repeat(page, repeat):
+                    await self.__run_nodes(page, interactions['nodes'])
+        else:
+            await self.__run_nodes(page, interactions['nodes'])
+
+
+    async def __run_nodes(self, page: Page, nodes: List[NodeConfig]) -> None:
         for alts in nodes:
             alts = alts if type(alts) == list else [alts]
 
             for node in alts:
-
                 self.__state['vars']['_node'] = re.sub(':', '-', node.get('name', node['selector']))
                 loc_kwargs = {}
 
@@ -302,7 +306,7 @@ class Rake:
 
                     if 'data' in node: await self.__extract_data(loc, node['data'], all)
 
-                    if 'nodes' in node: await self.__interact(page, node['nodes'])
+                    if 'interact' in node: await self.__interact(page, node['interact'])
                 
                 if count: break
 
