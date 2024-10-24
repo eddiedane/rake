@@ -16,7 +16,7 @@ PageConfig = Dict[Literal['link', 'interact'], str | Dict[str, Any]]
 
 NodeConfig = Dict[Literal['selector', 'all', 'range', 'links', 'data', 'interact', 'actions', 'wait', 'contains', 'excludes'], int | str | bool | List | Dict]
 
-InteractConfig = Dict[Literal['repeat', 'nodes'], int |Dict[str, Any]]
+InteractConfig = Dict[Literal['repeat', 'nodes'], int | List[Dict[str, Any]] | Dict[str, Any]]
 
 LinkConfig = Dict[Literal['name', 'url', 'metadata'], str | Dict[str, Any]]
 
@@ -388,7 +388,7 @@ class Rake:
                 if type(repeat) is int:
                     for _ in range(repeat):
                         await self.__browse(interactions['nodes'])
-                elif type(repeat) is dict:
+                elif type(repeat) is list:
                     while await self.__should_repeat(repeat):
                         await self.__browse(interactions['nodes'])
             else:
@@ -447,15 +447,34 @@ class Rake:
                     if count: break
 
 
-        async def __should_repeat(self, opts: Dict) -> bool:
-            loc: Locator = self.__page.locator(opts['selector'])
-            loc = loc.first
+        async def __should_repeat(self, conditions: List[Dict[str, Any]]) -> bool:
+            for condition in conditions:
+                value_getter = condition.get('value')
+                repeat_while = condition.get('while')
 
-            if 'exists' in opts and bool(await loc.count()) == opts['exists']: return True
+                if not value_getter or not repeat_while or len(repeat_while) != 2: continue
 
-            if 'disabled' in opts and await loc.is_disabled() == opts['disabled']: return True
+                value = await self.__attribute(value_getter, self.__page.locator('html'))
 
-            return False
+                match repeat_while[0]:
+                    case 'equal':
+                        if value != repeat_while[1]: return False
+                    case 'is':
+                        if value != repeat_while[1]: return False
+                    case 'not_equal':
+                        if value == repeat_while[1]: return False
+                    case 'not':
+                        if value == repeat_while[1]: return False
+                    case 'greater_than':
+                        if value <= repeat_while[1]: return False
+                    case 'less_than':
+                        if value >= repeat_while[1]: return False
+                    case 'greater_than_or_equal':
+                        if value < repeat_while[1]: return False
+                    case 'less_than_or_equal':
+                        if value > repeat_while[1]: return False
+
+            return True
 
 
         def __resolve_range(self, range: List, max: int) -> Tuple[int, int, int]:
@@ -646,6 +665,8 @@ class Rake:
                         '(node, [childNode, attr]) => childNode ? node.childNodes[childNode - 1][attr] : node[attr]',
                         [child_node, 'textContent' if attr == 'text' else attr]
                     )
+                elif attr == 'disabled':
+                    value = await loc.is_disabled()
 
                 if len(utils): 
                     value = self.__apply_utils(utils, value)

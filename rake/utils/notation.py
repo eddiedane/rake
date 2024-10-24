@@ -122,18 +122,22 @@ def find_item_key(key, value, vars):
     else: raise TypeError(Fore.RED + f'Invalid operation type (dict and list only) at ' + Fore.CYAN + key + Fore.RESET)
 
     for k, v in items:
-        found = False
+        found = compare(v[left_operand], operator, right_operand)
 
-        match operator:
-            case '=': found = v[left_operand] == right_operand
-            case '!=': found = v[left_operand] != right_operand
-            case '>=': found = v[left_operand] >= right_operand
-            case '<=': found = v[left_operand] <= right_operand
-            case '>': found = v[left_operand] > right_operand
-            case '<': found = v[left_operand] < right_operand
-            case _: raise ValueError(Fore.RED + 'Invalid operator ' + Fore.CYAN + operator + Fore.RED + ' at ' + Fore.CYAN + key + Fore.RESET)
-        
+        if found is None: 
+            raise ValueError(Fore.RED + 'Invalid operator ' + Fore.CYAN + operator + Fore.RED + ' at ' + Fore.CYAN + key + Fore.RESET)
+
         if found: return k
-    else:
-        raise ValueError(Fore.RED + 'No match found at ' + Fore.CYAN + key + Fore.RED + ' with comparsion of ' + Fore.BLUE + f'{left_operand}{operator}{right_operand}' + Fore.RESET)
-    
+
+    raise ValueError(Fore.RED + 'No match found at ' + Fore.CYAN + key + Fore.RED + ' with comparsion of ' + Fore.BLUE + f'{left_operand}{operator}{right_operand}' + Fore.RESET)
+
+
+def compare(left_operand: str, operator: str, right_operand: str) -> bool | None:
+    match operator:
+        case '=': return left_operand == right_operand
+        case '!=': return left_operand != right_operand
+        case '>=': return left_operand >= right_operand
+        case '<=': return left_operand <= right_operand
+        case '>': return left_operand > right_operand
+        case '<': return left_operand < right_operand
+        case _: return None
