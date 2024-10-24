@@ -282,9 +282,8 @@ class Rake:
 
 
     def __get_outputs(self) ->  List[Dict[str, str]]:
-        output_path: str = self.__config.get('output', {}).get('path', '')
-        output_path = f'{output_path}/' if output_path else ''
-        output_name: str = self.__config.get('output', {}).get('name', '')
+        output_path: str = self.__config.get('output', {}).get('path', './')
+        output_name: str = self.__config.get('output', {}).get('name', 'rake_output')
         formats: List[Dict | str] = self.__config.get('output', {}).get('formats', [])
         resolved_formats: List[Dict] = []
         format_file_extension = {
