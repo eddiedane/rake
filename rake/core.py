@@ -512,7 +512,7 @@ class Rake:
                     if 'delay' in action: 
                         await loc.page.wait_for_timeout(action['delay'])
 
-                    if not await loc.is_visible() and self.__config.get('logging', Rake.DEFAULT_LOGGING):
+                    if not await loc.is_visible() and self.__rake_config.get('logging', Rake.DEFAULT_LOGGING):
                         print(Fore.YELLOW + 'Action may fail due to node being inaccessible or not visible: ' + Fore.WHITE + f'{self.__vars['_node']}@{action['type']}')
                     
                     if action.get('dispatch', False) and t not in ['swipe_left', 'swipe_right']:
