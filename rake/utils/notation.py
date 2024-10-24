@@ -3,7 +3,7 @@ from typing import Dict, List, Literal, Tuple
 from colorama import Fore
 
 
-ParseValueData = Dict[Literal['prop', 'child_node', 'ctx', 'selector', 'max', 'utils', 'parsed_utils', 'var'], int | str | List | None]
+ParseValueData = Dict[Literal['prop', 'child_node', 'ctx', 'selector', 'max', 'utils', 'parsed_utils', 'var'], int | str | Dict[str, List[str]] | None]
 KeyMatchData = Dict[Literal['is_left_var', 'left_operand', 'operator', 'is_right_var', 'right_operand'], str]
 
 
@@ -52,22 +52,24 @@ def parse_value(string: str, set_defaults: bool = True) -> ParseValueData:
         data['utils'] = (data['utils'] or '').strip()
         data['ctx'] = data['ctx'] or 'parent'
         data['max'] = data['max'] or 'one'
+        data['parsed_utils'] = {}
 
-    if not data['utils']:
-        data['parsed_utils'] = []
+    data['parsed_utils'] = parse_utils(data['utils'])
 
-        return data
-    
-    utils = re.split(r'\s*\|\s*', data['utils'])
-    parsed_utils = []
+    return data
+
+
+def parse_utils(string: str | None) -> Dict[str, List[str]]:
+    if not string: return {}
+
+    utils = re.split(r'\s*\|\s*', string)
+    parsed_utils: Dict[str, List[str]] = {}
 
     for util in utils:
         util_parts = re.split(r'\s+', util.strip())
-        parsed_utils.append((util_parts[0], util_parts[1:]))
+        parsed_utils[util_parts[0]] = util_parts[1:]
 
-    data['parsed_utils'] = parsed_utils
-
-    return data
+    return parsed_utils
 
 
 def parse_getters(string: str) -> List[Tuple[str, str, str]]:

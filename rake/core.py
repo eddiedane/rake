@@ -30,6 +30,8 @@ Links = Dict[str, List[Link]]
 
 State = Dict[Literal['data', 'vars', 'links'], Dict[str, Any]]
 
+Attribute = str | Dict[Literal['attribute', 'child_node', 'context', 'all', 'selector', 'utils', 'var'], str | bool | List[str]]
+
 DOMRect = Dict[Literal['x', 'y', 'width', 'height', 'top', 'right', 'bottom', 'left'], float]
 
 
@@ -482,6 +484,8 @@ class Rake:
 
                 if type(count) is str:
                     count = int(await self.__evaluate(count, loc))
+                elif type(count) is dict:
+                    count = int(await self.__attribute(count, loc))
 
                 t: str = action['type']
                 rect: DOMRect = await loc.evaluate("node => node.getBoundingClientRect()")
@@ -599,18 +603,30 @@ class Rake:
             return string if not len(list_string) else list_string
 
 
-        async def __attribute(self, node_attr: str, loc: Locator) -> str | List:
+        async def __attribute(self, node_attr: Attribute, loc: Locator) -> str | List:
             values = []
-            utils = []
+            utils = {}
             locs = [loc]
-            result = notation.parse_value(node_attr)
-            attr = result['prop']
-            child_node = result['child_node']
-            selector = result['selector']
-            max = result['max']
-            ctx = result['ctx']
-            utils = result['parsed_utils']
-            var_name = result['var']
+
+            if type(node_attr) is str:
+                result = notation.parse_value(node_attr)
+                attr = result.get('prop')
+                child_node = result.get('child_node')
+                selector = result.get('selector')
+                max = result.get('max')
+                ctx = result.get('ctx')
+                utils = result.get('parsed_utils')
+                var_name = result.get('var')
+            elif type(node_attr) is dict:
+                attr = node_attr.get('attribute')
+                child_node = node_attr.get('child_node')
+                selector = node_attr.get('selector')
+                max = node_attr.get('max', 'one')
+                ctx = node_attr.get('context', 'parent')
+                utils = node_attr.get('utils', {})
+                var_name = node_attr.get('set_var')
+            else:
+                raise ValueError(Fore.RED + 'Invalid attribute type definition, only dict and str allowed at ' + Fore.WHITE + (selector or self.__vars['_node']) + Fore.RESET)
 
             if not attr : raise ValueError(Fore.RED + 'Attribute to extract not define at ' + Fore.WHITE + (selector or self.__vars['_node']) + Fore.RESET)
 
@@ -656,10 +672,10 @@ class Rake:
             return default
 
 
-        def __apply_utils(self, utils: List[Tuple[str, List]], val: str):
+        def __apply_utils(self, utils: Dict[str, List[str]], val: str):
             value = val
 
-            for name, args in utils:
+            for name, args in utils.items():
                 match name.strip():
                     case 'prepend':
                         if len(args) > 0:
