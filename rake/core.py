@@ -6,6 +6,7 @@ from slugify import slugify
 from tabulate import tabulate
 import pandas as pd
 from playwright.async_api import async_playwright, Browser, BrowserContext, BrowserType, Page, Locator, Route
+from playwright._impl._errors import TargetClosedError
 from rake.utils.helpers import pick, is_none_keys, is_numeric, get_file_type, get_total_size, format_seconds, format_size
 from rake.utils import notation, keypath, helpers as util
 
@@ -47,15 +48,13 @@ class Rake:
         self.__total_opened_pages = 0
 
 
-    async def start(self):
+    async def start(self) -> Dict:
         try:
             await self.__start()
 
-            data = self.data()
-
-            return (None, data)
+            return self.data()
         except Exception as e:
-            return (e, None)
+            raise e
         finally:
             await self.__close_browser()
 
@@ -197,7 +196,7 @@ class Rake:
 
     async def __close_browser(self) -> None:
         if self.__config.get('logging', Rake.DEFAULT_LOGGING):
-            print(Fore.YELLOW + 'Closing browser' + Fore.RESET)
+            print('\n' + Fore.YELLOW + 'Closing browser' + Fore.RESET)
 
         if self.__browser_context:
             await asyncio.gather(*[page.close() for page in self.__browser_context.pages])
