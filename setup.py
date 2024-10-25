@@ -1,12 +1,13 @@
 from setuptools import setup, find_packages
+import pypandoc
 
 setup(
     name='rake-python',
-    version='0.1.3',
+    version='0.1.4',
     author='Eddie Dane',
     description='Rake is a simple yet powerful web scraping tool that allows you to configure and execute complex and repetitive scraping tasks with ease and little to no code.',
-    long_description=open('README.md').read(),
-    long_description_content_type='text/markdown',
+    long_description=pypandoc.convert_file('README.md', 'rst'),
+    long_description_content_type='text/x-rst',
     url='https://github.com/eddiedane/rake',
     packages=find_packages(),
     install_requires=[
@@ -17,7 +18,8 @@ setup(
         'tabulate',
         'python-slugify',
         'click',
-        'openpyxl'
+        'openpyxl',
+        'pypandoc'
     ],
     entry_points={
         'console_scripts': [
