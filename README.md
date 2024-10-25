@@ -11,7 +11,8 @@ Rake is a simple yet powerful web scraping tool that allows you to configure and
 5. [Configuration](#configurations)
 6. [Data Transformation](#data-transformation)
 7. [Output Formats](#output-formats)
-8. [License](#license)
+8. [Special Notations](#special-notations)
+9. [License](#license)
 
 ## Introduction
 
@@ -25,17 +26,26 @@ Rake is designed to simplify the process of web scraping by providing a configur
 - **Pagination Support**: Easily navigate through multiple pages of content.
 - **Data Extraction**: Extract text, attributes, and custom data from web pages.
 - **Variable Support**: Use variables to store and reuse data across different scraping steps.
+- **Special Notations**: Use special notations to access captured data and metadata.
 - **Data Transformation**: Apply custom transformations to extracted data using Python functions.
 - **Multiple Output Formats**: Export scraped data in various formats, including JSON and Excel.
 <!-- - **Resumable Scraping**: Ability to pause and resume scraping tasks. -->
 
 ## Installation
 
+1. Install Rake and its dependencies:
+
 ```
 pip install rake-scraper
 ```
 
-This will install Rake and all its dependencies.
+2. Download the required browsers for Playwright:
+
+```
+playwright install
+```
+
+These steps will install Rake, all its dependencies, and download the necessary browser binaries for web scraping.
 
 ## Usage
 
@@ -463,6 +473,290 @@ Rake currently supports the following output formats:
 - `json`
 - `yaml`
 - `excel`
+
+## Special Notations
+
+Rake uses special notations to access and captured data and metadata. These notations provide a simplified way to extract and manipulate data during the scraping process.
+
+### DOM Element Access
+
+Full notation:
+
+`$attr{attribute:child(n)<page|parent.all|first>@selector | util arg | another_util >> set_var}`
+
+Lets break it down:
+
+1. `$attr{...}`: This is the main wrapper for the attribute extraction syntax.
+
+2. `attribute`: Specifies the attribute to extract from the selected element(s). Common attributes include:
+
+   - `text`: The text content of the element
+   - `href`: The URL in an anchor tag
+   - `src`: The source URL in an image or script tag
+   - Any other HTML attribute name (e.g., `class`, `id`, `data-*`)
+
+3. `:child(n)` (optional): Selects the nth child node of the matched element(s). can be especially useful when selecting precise TextNode
+
+   - Example: `:child(2)` selects the second child
+
+4. `<page|parent.all|first>` (optional): Specifies the scope of the selection:
+
+   - `page`: Selects from the entire page
+   - `parent`: Selects from the parent element (useful in nested selections)
+   - `.all`: Selects all matching elements instead of just the first one
+   - `.first`: Selects only the first matching element (default behavior if not specified)
+
+5. `@selector` (optional): The CSS selector used to find the element(s) on the page.
+
+   - Example: `@div.product-title` selects elements with class "product-title"
+
+6. `| util arg | another_util arg` (optional): Applies a list of utility functions separated by `|` to the extracted value:
+
+   - `util`: The name of the utility function
+   - `arg`: Optional argument(s) for the utility function
+   - Example: `| subtract 1` subtracts 1 from the extracted value
+
+7. `>> set_var` (optional): Stores the result in a variable for later use:
+   - `set_var`: The name of the variable to store the result
+
+Here's an example of how this notation might be used in practice:
+
+```yaml
+data:
+  - scope: product
+    value: $attr{text:child(2)<parent.all>@div.product-info | trim >> product_name}
+```
+
+This would:
+
+1. Select all `div` elements with class `product-info` within the parent context
+2. For each of these elements, get the text content of their second child
+3. Trim any whitespace from the extracted text
+4. Store the result in a variable called `product_name`
+
+This is a notation that aims to condense an simplify describing DOM nodes access for precise data extraction and manipulation, making it possible to handle complex scraping scenarios with a single, concise expression.
+
+### Variable Access
+
+- `$var{variable_name}`: Accesses a previously stored variable.
+  - Example: `$var{product_title}` retrieves the value stored in the "product_title" variable.
+
+### Combining $attr{...} and $var{...}
+
+Rake allows you to combine the `$attr{...}` and `$var{...}` notations to create dynamic string values, which can be particularly useful for constructing URLs.
+
+#### Syntax
+
+The general syntax for combining these notations is:
+
+```
+"{$attr{...}}{$var{...}}"
+```
+
+You can include as many `$attr{...}` and `$var{...}` expressions as needed within the string, along with any static text.
+
+#### Examples
+
+1. Constructing a URL:
+
+```yaml
+links:
+  - name: product_pages
+    url: 'https://example.com/products/{$attr{text@.product-id}}'
+```
+
+This would construct a URL by combining a static base URL with a product ID extracted from the page.
+
+2. Creating a dynamic file path:
+
+```yaml
+data:
+  - scope: product
+    value:
+      image_url: '/images/{$var{category}}/{$attr{src@img.product-image}}'
+```
+
+This would create an image URL path by combining a variable `category` with an image source attribute extracted from the page.
+
+3. Forming a complex string:
+
+```yaml
+data:
+  - scope: product
+    value:
+      full_name: '{$attr{text@.first-name}} {$attr{text@.last-name}} - {$var{company}}'
+```
+
+This would create a full name string by combining first name and last name attributes with a company variable.
+
+#### Best Practices
+
+1. Ensure that the `$attr{...}` expressions are valid and target existing elements on the page.
+2. Make sure that any `$var{...}` references point to previously set variables.
+3. Use this combination technique judiciously to keep your configurations readable and maintainable.
+4. Ensure that the `$attr{...}` and `$var{...}` expressions yield a string value.
+
+### Links Name Reference
+
+Rake allows you to capture and reference groups of links for later crawling. This feature is particularly useful for scraping multiple similar pages e.g the product page.
+
+#### Capturing Links
+
+To capture a group of links, use the `name` property within the `links` configuration of a node config:
+
+```yaml
+rake:
+  - link: https://example.com/category-1
+    interact:
+      nodes:
+        - selector: a.product-page
+          all: true
+          links:
+            - name: product_pages
+              url: $attr{href}
+```
+
+In this example, all links matching the `a.product-page` selector will be captured and stored under the name "product_pages".
+
+#### Referencing Captured Links
+
+To reference the captured links in subsequent scraping tasks, use the `$` prefix followed by the link group name in the `link` property of a rake configuration:
+
+```yaml
+rake:
+  - link: $product_pages
+    interact:
+      nodes:
+        - selector: .product
+          data:
+            - scope: products
+              value:
+                title: $attr{text@h2}
+                price: $attr{text@.price}
+```
+
+This configuration will iterate through all the links captured in the "product_pages" group and perform the specified interactions and data extraction on each page.
+
+#### Multiple Link Groups
+
+You can capture and reference multiple link groups in your configuration:
+
+```yaml
+rake:
+  - link: https://example.com/categories
+    interact:
+      nodes:
+        - selector: .category-link
+          links:
+            - name: category_pages
+              url: $attr{href}
+  - link: $category_pages
+    interact:
+      nodes:
+        - selector: .product-link
+          links:
+            - name: product_pages
+              url: $attr{href}
+  - link: $product_pages
+    interact:
+      nodes:
+        - selector: .product-details
+          data:
+            - scope: products
+              value:
+                title: $attr{text@h1}
+                description: $attr{text@.description}
+                price: $attr{text@.price}
+```
+
+This configuration demonstrates a three-level crawl:
+
+1. Capture category links from the main page
+2. Visit each category page and capture product links
+3. Visit each product page and extract detailed information
+
+By using link group naming and referencing, you can create complex, multi-level scraping tasks that navigate through website structures efficiently.
+
+### Data Scoping: Forming the structure of the data
+
+Data scoping allows you to navigate and build flexible data with complex nested structures. This feature is available in the `rake.*.interact.*.data.*.scope` configuration.
+
+#### Scoping Notation
+
+The general format for data scoping is:
+
+`object.$key{left_operand operator right_operand}.property`
+
+Let's break down each component:
+
+1. `object`: The base object or collection you're working with.
+2. `$key{...}`: A special syntax for finding a specific item within a collection.
+3. `property`: The specific property of the found item you want to access / updated.
+
+#### Key Matching Syntax
+
+The `$key{...}` syntax is particularly useful for finding items in collections. It uses the following format:
+
+`$key{left_operand operator right_operand}`
+
+Where:
+
+- `left_operand`: The property of the items to compare (can be a variable with `$` prefix).
+- `operator`: One of `=`, `!=`, `>=`, `<=`, `>`, `<`.
+- `right_operand`: The value to compare against (can be a variable with `$` prefix).
+
+#### How It Works
+
+1. The system searches through the `object` (which can be a dict or list).
+2. For each item, it compares the `left_operand` property with the `right_operand` using the specified `operator`.
+3. If a match is found, that item is selected.
+4. The `property` after the `$key{...}` is then accessed on the matched item.
+
+#### Supported Operators
+
+- `=`: Equality
+- `!=`: Inequality
+- `>=`: Greater than or equal to
+- `<=`: Less than or equal to
+- `>`: Greater than
+- `<`: Less than
+
+#### Variable Usage
+
+You can use variables in both the `left_operand` and `right_operand` by prefixing them with `$`. The actual values will be looked up in the `vars` or link `metadata` dictionary.
+
+#### Examples
+
+1. Basic usage:
+
+   ```
+   users.$key{name=John}.hobbies
+   ```
+
+   This would find a user with the name "John" and add data under `hobbies` key.
+
+2. Using variables:
+
+   ```
+   products.$key{$category=electronics}.variants
+   ```
+
+   This would find a product in the "electronics" category (where `category` is a variable) and add data under `variants` key.
+
+3. Numeric comparison:
+   ```
+   orders.$key{total>100}.items
+   ```
+   This would find an order with a total greater than 100 and add data under `items` key.
+
+#### Best Practices
+
+1. Ensure that the properties you're comparing exist in your data structure.
+2. Be mindful of the data types when using comparison operators.
+3. Use variables (`$var`) when you need dynamic comparisons.
+<!-- 4. Handle potential errors (like no match found) in your Rake tasks. -->
+
+By mastering data scoping, you can efficiently navigate and extract data from complex structures in your Rake configurations, making your tasks more powerful and flexible.
 
 ## License
 
