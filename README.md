@@ -8,17 +8,36 @@ Rake is a simple yet powerful web scraping tool that allows you to configure and
 2. [Features](#features)
 3. [Installation](#installation)
 4. [Usage](#usage)
+   - [CLI](#cli)
+   - [Programmatically](#programmatically)
 5. [Configuration](#configurations)
+   - [Browser Settings](#browser-settings-browser)
+   - [Logging](#logging-logging)
+   - [Output Settings](#output-settings-output)
+   - [Rake Pages](#rake-pages-rake)
+   - [Interactions](#interactions-interact)
+   - [Collecting and Queueing Links](#collecting-and-queueing-links-links)
+   - [Extracting Data](#extracting-data-data)
+   - [Concurrency](#concurrency-race)
 6. [Data Transformation](#data-transformation)
 7. [Output Formats](#output-formats)
 8. [Special Notations](#special-notations)
+   - [DOM Element Access](#dom-element-access)
+   - [Variable Access](#variable-access)
+   - [Combining $attr{...} and $var{...}](#combining-attr-and-var)
+   - [Links Name Reference](#links-name-reference)
+   - [Data Scoping: Forming the structure of the data](#data-scoping-forming-the-structure-of-the-data)
 9. [License](#license)
 
 ## Introduction
 
+[&uarr; Back to Table of Contents](#table-of-contents)
+
 Rake is designed to simplify the process of web scraping by providing a configuration-based approach. It allows users to define scraping tasks using YAML files, making it easy to specify selectors, interactions, and data extraction rules without writing complex code.
 
 ## Features
+
+[&uarr; Back to Table of Contents](#table-of-contents)
 
 - **YAML Configuration**: Define scraping tasks using simple and readable YAML files.
 - **Flexible Selectors**: Use CSS selectors to target specific elements on web pages.
@@ -32,6 +51,8 @@ Rake is designed to simplify the process of web scraping by providing a configur
 <!-- - **Resumable Scraping**: Ability to pause and resume scraping tasks. -->
 
 ## Installation
+
+[&uarr; Back to Table of Contents](#table-of-contents)
 
 1. Install Rake and its dependencies:
 
@@ -49,7 +70,11 @@ These steps will install Rake, all its dependencies, and download the necessary 
 
 ## Usage
 
+[&uarr; Back to Table of Contents](#table-of-contents)
+
 ### CLI
+
+[&uarr; Back to Table of Contents](#table-of-contents)
 
 1. Create a YAML configuration file defining your scraping task.
 
@@ -88,6 +113,8 @@ rakestart example.com.yaml
 
 ### Programmatically
 
+[&uarr; Back to Table of Contents](#table-of-contents)
+
 ```
 from rake import Rake
 
@@ -106,11 +133,15 @@ except Exception as e:
 
 ## Configurations
 
+[&uarr; Back to Table of Contents](#table-of-contents)
+
 Rake uses various nested configuration options. These options define the structure and behavior of your scraping tasks. Here's an overview of the various configuration sections:
 
 _**Note**: configuration will be written in YAML throughout this documentation, although Rake itself accepts Python dictionaries as configuration._
 
 ### Browser Settings `browser`
+
+[&uarr; Back to Table of Contents](#table-of-contents)
 
 The `browser` configuration section allows you to customize the behavior of the browser used for scraping. Here's an overview of the available settings:
 
@@ -173,6 +204,8 @@ browser:
 
 ### Logging `logging`
 
+[&uarr; Back to Table of Contents](#table-of-contents)
+
 The `logging` configuration option controls the verbosity of Rake's output during execution. It can be set to either `true` or `false`:
 
 - `true`: Enables detailed logging, providing information about page openings, interactions, and other operations.
@@ -187,6 +220,8 @@ browser:
 ```
 
 ### Output Settings `output`
+
+[&uarr; Back to Table of Contents](#table-of-contents)
 
 The `output` configuration controls how and where Rake saves the scraped data. It includes the following settings:
 
@@ -234,6 +269,8 @@ output:
 
 ### Rake Pages `rake`
 
+[&uarr; Back to Table of Contents](#table-of-contents)
+
 The `rake` configuration defines the scraping behavior for each type page. It includes A list of page configurations. Each page configuration can include:
 
 - `link` (string or object or list): The URL to scrape or a link object with additional metadata.
@@ -263,6 +300,8 @@ rake:
 ```
 
 ### Interactions `interact`
+
+[&uarr; Back to Table of Contents](#table-of-contents)
 
 The `interact` configuration defines how Rake interacts with elements on the page. It can include the following settings:
 
@@ -305,6 +344,8 @@ interact:
 
 ### Collecting and Queueing Links `links`
 
+[&uarr; Back to Table of Contents](#table-of-contents)
+
 The `links` configuration allows Rake to collect and queue links from the elements for further crawling. Each link configuration can include the following settings:
 
 - `name` (string): The name to identify the collected links.
@@ -344,6 +385,8 @@ links:
 ```
 
 ### Extracting Data `data`
+
+[&uarr; Back to Table of Contents](#table-of-contents)
 
 The `data` configuration allows Rake to extract and structure data from the elements. Each data configuration can include the following settings:
 
@@ -393,6 +436,8 @@ The `data` configuration allows Rake to extract and structure data from the elem
 
 ### Concurrency `race`
 
+[&uarr; Back to Table of Contents](#table-of-contents)
+
 The `race` configuration option controls how many links Rake will scrape concurrently.
 
 - `number` (integer): The number of links to scrape concurrently.
@@ -405,6 +450,8 @@ race: 5 # scrape 5 links concurrently
 ```
 
 ## Data Transformation
+
+[&uarr; Back to Table of Contents](#table-of-contents)
 
 Rake allows you to apply custom data transformations to the extracted data using Python modules. This feature is useful when you need to process or clean the data before saving it to the output formats.
 
@@ -467,6 +514,8 @@ output:
 
 ## Output Formats
 
+[&uarr; Back to Table of Contents](#table-of-contents)
+
 Rake currently supports the following output formats:
 
 - `json`
@@ -475,9 +524,13 @@ Rake currently supports the following output formats:
 
 ## Special Notations
 
+[&uarr; Back to Table of Contents](#table-of-contents)
+
 Rake uses special notations to access and captured data and metadata. These notations provide a simplified way to extract and manipulate data during the scraping process.
 
 ### DOM Element Access
+
+[&uarr; Back to Special Notations](#special-notations)
 
 Full notation:
 
@@ -537,10 +590,14 @@ This is a notation that aims to condense an simplify describing DOM nodes access
 
 ### Variable Access
 
+[&uarr; Back to Special Notations](#special-notations)
+
 - `$var{variable_name}`: Accesses a previously stored variable.
   - Example: `$var{product_title}` retrieves the value stored in the "product_title" variable.
 
 ### Combining $attr{...} and $var{...}
+
+[&uarr; Back to Special Notations](#special-notations)
 
 Rake allows you to combine the `$attr{...}` and `$var{...}` notations to create dynamic string values, which can be particularly useful for constructing URLs.
 
@@ -597,6 +654,7 @@ This would create a full name string by combining first name and last name attri
 
 ### Links Name Reference
 
+[&uarr; Back to Special Notations](#special-notations)
 Rake allows you to capture and reference groups of links for later crawling. This feature is particularly useful for scraping multiple similar pages e.g the product page.
 
 #### Capturing Links
@@ -678,6 +736,8 @@ By using link group naming and referencing, you can create complex, multi-level 
 
 ### Data Scoping: Forming the structure of the data
 
+[&uarr; Back to Table of Contents](#table-of-contents)
+
 Data scoping allows you to navigate and build flexible data with complex nested structures. This feature is available in the `rake.*.interact.*.data.*.scope` configuration.
 
 #### Scoping Notation
@@ -758,5 +818,7 @@ You can use variables in both the `left_operand` and `right_operand` by prefixin
 By mastering data scoping, you can efficiently navigate and extract data from complex structures in your Rake configurations, making your tasks more powerful and flexible.
 
 ## License
+
+[&uarr; Back to Table of Contents](#table-of-contents)
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
