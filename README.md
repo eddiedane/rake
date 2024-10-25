@@ -97,12 +97,11 @@ config = Rake.load_config("example.com.yaml")
 # Initialize Rake with the config
 rake = Rake(config)
 
-err, data = rake.start()
-
-if err:
+try:
+  # start scraping
+  data = await rake.start()
+except Exception as e:
   ...
-
-rake.data('./outputs/example.com.json')
 ```
 
 ## Configurations
