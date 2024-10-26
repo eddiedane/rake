@@ -1,5 +1,7 @@
+
 import asyncio
-import re, json, os, importlib, time, shutil, yaml
+from types import ModuleType
+import re, json, os, importlib, time, shutil, random, string, yaml
 from typing import Dict, Any, List, Literal, Tuple, Callable
 from colorama import Fore, Style
 from slugify import slugify
@@ -38,47 +40,51 @@ DOMRect = Dict[Literal['x', 'y', 'width', 'height', 'top', 'right', 'bottom', 'l
 class Rake:
     DEFAULT_LOGGING = False
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Dict[str, Any] = {}):
         self.__browser_context: BrowserContext = None
         self.__browser: Browser = None
         self.__config = config
         self.__state: State = {'data': {}, 'vars': {}, 'links': {}}
         self.__start_time = 0
         self.__total_opened_pages = 0
+        self.__id = ''.join(random.choices(string.ascii_letters + '_', k=6))
+        self.__portal: ModuleType | None = None
 
 
     async def start(self) -> Dict:
         try:
             await self.__start()
-
             return self.data()
         except Exception as e:
             raise e
         finally:
-            await self.__close_browser()
-
             if self.__config.get('logging', Rake.DEFAULT_LOGGING):
                 print()
                 self.table()
                 print()
 
 
-    def data(self, filepath: str | None = None) -> Dict:
-        outputs = self.__get_outputs()
+    def data(self, filepath: str | List[str] = [], output: bool = False) -> Dict:
+        if output:
+            outputs = self.__get_outputs()
 
-        if filepath:
-            outputs.append({
-                'type': get_file_type(filepath),
-                'path': filepath,
-                'transform': None
-            })
+            if filepath:
+                if type(filepath) is str:
+                    filepath = [filepath]
+                
+                for path in filepath:
+                    outputs.append({
+                        'type': get_file_type(path),
+                        'path': path,
+                        'transform': None
+                    })
 
-        for output in outputs:
-            self.__output(
-                output.get('path'),
-                output.get('type'),
-                transform=output.get('transform', None)
-            )
+            for output_config in outputs:
+                self.__output(
+                    output_config.get('path'),
+                    output_config.get('type'),
+                    transform=output_config.get('transform', None)
+                )
 
         return self.__state['data']
 
@@ -115,6 +121,15 @@ class Rake:
         print(tabulate(rows, headers, tablefmt="double_outline"))
 
 
+    async def end(self) -> None:
+        await self.__close_browser()
+
+        portal_path = f'{os.path.dirname(os.path.abspath(__file__))}/temp/portal_{self.__id}.py'
+
+        if self.__portal and os.path.exists(portal_path):
+            os.remove(portal_path)
+
+
     @staticmethod
     def load_config(filename: str) -> Dict:
         with open(filename, 'r') as file:
@@ -122,11 +137,12 @@ class Rake:
                 return yaml.safe_load(file)
             elif get_file_type(filename) == 'json':
                 return json.load(file)
-            
+                
         raise ValueError(Fore.RED + 'Unable to load unsupported config file type, ' + Fore.BLUE + filename + Fore.RESET)
 
 
     async def __start(self) -> None:
+        self.__load_portal()
         await self.__launch_browser()
 
         if 'rake' not in self.__config: return self.data()
@@ -137,7 +153,7 @@ class Rake:
             links = self.__resolve_page_link(page_config['link'])
             race = self.__config.get('race', 1)
             queue = asyncio.Queue(maxsize=race)
-            tasks = [asyncio.create_task(self.__concurrent(queue, page_config, i)) for i in range(race)]
+            tasks = [asyncio.create_task(self.__concurrent(queue, page_config)) for i in range(race)]
 
             for link in links:
                 await queue.put(link)
@@ -147,10 +163,10 @@ class Rake:
             for _ in tasks:
                 await queue.put(None)
 
-            await asyncio.gather(*tasks)
+            await asyncio.gather(*tasks, return_exceptions=True)
 
 
-    async def __concurrent(self, queue: asyncio.Queue, config: PageConfig, index: int) -> None:
+    async def __concurrent(self, queue: asyncio.Queue, config: PageConfig) -> None:
         while True:
             link: Link = await queue.get()
 
@@ -162,12 +178,16 @@ class Rake:
                 self.__config,
                 self.__state,
                 self.__browser_context,
-                queue
+                queue,
+                self.__portal
             )
-
-            await page_manager.open()
-
-            queue.task_done()
+            
+            try:
+                await page_manager.open()
+            except Exception as e:
+                raise e
+            finally:
+                queue.task_done()
 
             self.__total_opened_pages += 1
     
@@ -195,10 +215,12 @@ class Rake:
 
 
     async def __close_browser(self) -> None:
+        if not self.__browser.is_connected(): return
         if self.__config.get('logging', Rake.DEFAULT_LOGGING):
             print(Fore.YELLOW + 'Closing browser' + Fore.RESET)
 
         if self.__browser_context:
+            self.__browser.is_connected
             await asyncio.gather(*[page.close() for page in self.__browser_context.pages])
             await self.__browser_context.close()
             await self.__browser.close()
@@ -220,7 +242,14 @@ class Rake:
         return links
     
 
-    def __output(self, filepath: str, type: str, state: str = 'data', transform: str = None) -> None:
+    def __load_portal(self) -> None:
+        if self.__config.get('portal', False) != True: return
+
+        shutil.copy('portal.py', f'{os.path.dirname(os.path.abspath(__file__))}/temp/portal_{self.__id}.py')
+        self.__portal = importlib.import_module(f'rake.temp.portal_{self.__id}')
+    
+
+    def __output(self, filepath: str, filetype: str, state: str = 'data', transform: str = None) -> None:
         if not filepath: return
 
         dir = os.path.dirname(filepath)
@@ -228,18 +257,13 @@ class Rake:
         transform_fn: Callable | None = None
         transform_args: List[Dict | str] = [data, filepath]
         count_args: int = 0
-        transform_temp: str | None = None
 
         if dir: os.makedirs(dir, exist_ok=True)
 
         if transform:
-            transform_temp = f'{os.path.dirname(os.path.abspath(__file__))}/temp/{transform}.py'
-            shutil.copy(f'{transform}.py', transform_temp)
-            transform_module = importlib.import_module(f'rake.temp.{transform}')
-            transform_fn = transform_module.transform
-            count_args = util.count_required_args(transform_fn)
+            transform_fn, count_args = util.portal_action(transform, self.__config, self.__portal)
         
-        match type:
+        match filetype:
             case 'yaml':
                 if self.__config.get('logging', Rake.DEFAULT_LOGGING):
                     print(Fore.GREEN + f'Outputting {state} to YAML: ' + Fore.BLUE + filepath + Fore.RESET)
@@ -268,16 +292,13 @@ class Rake:
                 if self.__config.get('logging', Rake.DEFAULT_LOGGING):
                     print(Fore.GREEN + f'Outputting {state} to Excel: ' + Fore.BLUE + filepath + Fore.RESET)
 
-                if transform_fn:
+                if transform_fn and data:
                     data = transform_fn(*transform_args[0:count_args])
 
                 if data is not None:
                     with pd.ExcelWriter(filepath) as writer:
                         df = pd.DataFrame(data)
                         df.to_excel(writer, index=False)
-
-        if transform_temp:
-            os.remove(transform_temp)
 
 
     def __get_outputs(self) ->  List[Dict[str, str]]:
@@ -320,7 +341,8 @@ class Rake:
             rake_config: Config,
             rake_state: State,
             browser_context: BrowserContext,
-            queue: asyncio.Queue
+            queue: asyncio.Queue,
+            portal: ModuleType | None = None
         ):
             self.__link = link
             self.__config = config
@@ -331,7 +353,7 @@ class Rake:
             self.__vars['_url'] = link['url']
             self.__page: Page | None = None
             self.__queue = queue
-
+            self.__portal = portal
 
         async def open(self) -> Page:
             if 'interact' not in self.__config:
@@ -424,8 +446,10 @@ class Rake:
                         print(Fore.GREEN + 'Interacting with: ' + Fore.WHITE + Style.DIM + node['selector'] + Style.NORMAL + Fore.RESET)
 
                     if 'wait' in node:
-                        try: await locator.wait_for(timeout=node['wait'])
-                        except TimeoutError as e: raise e
+                        try:
+                            await locator.wait_for(timeout=node['wait'])
+                        except TimeoutError as e:
+                            raise e
 
                     locs = await locator.all()
                     count = len(locs)
@@ -738,5 +762,9 @@ class Rake:
                         value = value.split('?')[0]
                     case 'trim':
                         value = value.strip()
+                    case _:
+                        fn, _ = util.portal_action(name.strip(), self.__rake_config, self.__portal)
+                        value = fn(value, *args)
             
             return value
+        

@@ -1,5 +1,7 @@
 import re, inspect, sys
-from typing import Any, Dict, Literal, Set, Tuple
+from colorama import Fore
+from typing import Any, Dict, Literal, Set, Tuple, Callable
+from types import ModuleType
 
 
 def get_file_type(filename: str) -> Literal['yaml', 'json', 'excel']:
@@ -157,3 +159,17 @@ def format_size(size: int) -> str:
     if sz != 1.00: unit += 's'
 
     return f'{sz} {unit}'
+
+
+def portal_action(name: str, config: Dict | bool, portal_module: ModuleType) -> Callable:
+    try:
+        if portal_module:
+            fn = getattr(portal_module, name)
+        elif type(config.get('portal', False)) is dict:
+            fn = config['portal'][name]
+
+        args_count = count_required_args(fn)
+
+        return fn, args_count
+    except Exception:
+        raise ValueError(Fore.RED + 'Unsupported portal action, ' + Fore.CYAN + name + Fore.RESET)
