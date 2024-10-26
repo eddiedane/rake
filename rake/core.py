@@ -6,7 +6,6 @@ from slugify import slugify
 from tabulate import tabulate
 import pandas as pd
 from playwright.async_api import async_playwright, Browser, BrowserContext, BrowserType, Page, Locator, Route
-from playwright._impl._errors import TargetClosedError
 from rake.utils.helpers import pick, is_none_keys, is_numeric, get_file_type, get_total_size, format_seconds, format_size
 from rake.utils import notation, keypath, helpers as util
 
@@ -95,7 +94,7 @@ class Rake:
         duration = format_seconds(int(time.time() - self.__start_time))
         data_size = format_size(get_total_size(self.__state['data']))
         mode = 'headless' if not self.__config.get('browser', {}).get('show', False) else 'visible'
-        output = ', '.join([output['type'].upper() for output in self.__get_outputs()] + ['dict'])
+        output = ', '.join([output['type'].upper() for output in self.__get_outputs()] or ['dict'])
 
         headers = [
             Style.BRIGHT + 'Crawled Pages' + Style.NORMAL,
@@ -138,7 +137,7 @@ class Rake:
             links = self.__resolve_page_link(page_config['link'])
             race = self.__config.get('race', 1)
             queue = asyncio.Queue(maxsize=race)
-            tasks = [asyncio.create_task(self.__concurrent(queue, page_config)) for _ in range(race)]
+            tasks = [asyncio.create_task(self.__concurrent(queue, page_config, i)) for i in range(race)]
 
             for link in links:
                 await queue.put(link)
@@ -151,7 +150,7 @@ class Rake:
             await asyncio.gather(*tasks)
 
 
-    async def __concurrent(self, queue: asyncio.Queue, config: PageConfig) -> None:
+    async def __concurrent(self, queue: asyncio.Queue, config: PageConfig, index: int) -> None:
         while True:
             link: Link = await queue.get()
 
@@ -162,7 +161,8 @@ class Rake:
                 config,
                 self.__config,
                 self.__state,
-                self.__browser_context
+                self.__browser_context,
+                queue
             )
 
             await page_manager.open()
@@ -196,7 +196,7 @@ class Rake:
 
     async def __close_browser(self) -> None:
         if self.__config.get('logging', Rake.DEFAULT_LOGGING):
-            print('\n' + Fore.YELLOW + 'Closing browser' + Fore.RESET)
+            print(Fore.YELLOW + 'Closing browser' + Fore.RESET)
 
         if self.__browser_context:
             await asyncio.gather(*[page.close() for page in self.__browser_context.pages])
@@ -211,11 +211,11 @@ class Rake:
         for url in urls:
             if type(url) is dict:
                 # exclude internally set keys e.g. parent
-                links.append(pick(url, {"url", "metadata"}))
+                links.append(pick(url, {"url", "name", "metadata"}))
             elif url[0] == '$':
                 links += self.__state['links'].get(url[1:], [])
             else:
-                links.append({'url': url, 'metadata': {}})
+                links.append({'url': url, 'name': '', 'metadata': {}})
 
         return links
     
@@ -313,7 +313,15 @@ class Rake:
 
 
     class __PageManager:
-        def __init__(self, link: Link, config: PageConfig, rake_config: Config, rake_state: State,  browser_context: BrowserContext):
+        def __init__(
+            self,
+            link: Link,
+            config: PageConfig,
+            rake_config: Config,
+            rake_state: State,
+            browser_context: BrowserContext,
+            queue: asyncio.Queue
+        ):
             self.__link = link
             self.__config = config
             self.__rake_config = rake_config
@@ -322,6 +330,7 @@ class Rake:
             self.__vars = link.get('metadata', {})
             self.__vars['_url'] = link['url']
             self.__page: Page | None = None
+            self.__queue = queue
 
 
         async def open(self) -> Page:
@@ -434,7 +443,8 @@ class Rake:
                         self.__vars['_nth'] = i
                         loc = locs[i]
 
-                        if scroll_into_view: await loc.scroll_into_view_if_needed()
+                        if scroll_into_view and await loc.is_visible():
+                            await loc.scroll_into_view_if_needed()
 
                         await self.__node_actions(node.get('actions', []), loc)
 
@@ -596,12 +606,24 @@ class Rake:
                         metadata[key] = await self.__evaluate(value, loc)
 
                 if type(result) is not list:
-                    self.__rake_state['links'][name].append({'url': result, 'metadata': metadata})
-                    continue
-                
-                for string in result:
-                    # type
-                    self.__rake_state['links'][name].append({'url': string, 'metadata': metadata})
+                    result = [result]
+
+                for url in result:
+                    state_links: List[Link] = self.__rake_state['links'][name]
+                    found_link = None
+                    
+                    for existing_link in state_links:
+                        if existing_link['url'] == url:
+                            found_link = existing_link
+                            break
+
+                    if not found_link:
+                        state_links.append({'url': url, 'name': name, 'metadata': metadata})
+
+                        if self.__link.get('name') == name:
+                            await self.__queue.put({'url': url, 'name': name, 'metadata': metadata})
+                    # else:
+                    #     found_link['metadata'] = {**found_link['metadata'], **metadata}
 
 
         async def __evaluate(self, string: str, loc: Locator) -> str | List[str]:
