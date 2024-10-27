@@ -290,6 +290,17 @@ class Rake:
                     with open(filepath, 'w') as stream:
                         json.dump(data, stream, indent=2, ensure_ascii=False)
 
+            case 'csv':
+                if self.__config.get('logging', Rake.DEFAULT_LOGGING):
+                    print(Fore.GREEN + f'Outputting {state} to CSV: ' + Fore.BLUE + filepath + Fore.RESET)
+
+                if transform_fn and data:
+                    data = transform_fn(*transform_args[0:count_args])
+                
+                if data is not None:
+                    df = pd.DataFrame(data)
+                    df.to_csv(filepath, index=False, header=False)
+
             case 'excel':
                 if self.__config.get('logging', Rake.DEFAULT_LOGGING):
                     print(Fore.GREEN + f'Outputting {state} to Excel: ' + Fore.BLUE + filepath + Fore.RESET)
@@ -298,9 +309,8 @@ class Rake:
                     data = transform_fn(*transform_args[0:count_args])
 
                 if data is not None:
-                    with pd.ExcelWriter(filepath) as writer:
-                        df = pd.DataFrame(data)
-                        df.to_excel(writer, index=False)
+                    df = pd.DataFrame(data)
+                    df.to_excel(filepath, index=False)
 
 
     def __get_outputs(self) ->  List[Dict[str, str]]:
@@ -315,6 +325,7 @@ class Rake:
             'yaml': 'yml',
             'json': 'json',
             'excel': 'xlsx',
+            'csv': 'csv'
         }
 
         for format in formats:

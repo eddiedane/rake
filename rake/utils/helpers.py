@@ -4,13 +4,15 @@ from typing import Any, Dict, Literal, Set, Tuple, Callable
 from types import ModuleType
 
 
-def get_file_type(filename: str) -> Literal['yaml', 'json', 'excel']:
+def get_file_type(filename: str) -> Literal['yaml', 'json', 'excel', 'csv']:
     if re.search(r'[^.]*\.(yaml|yml)$', filename):
         return 'yaml'
     elif re.search(r'[^.]*\.json$', filename):
         return 'json'
     elif re.search(r'[^.]*\.xlsx?$', filename):
         return 'excel'
+    elif re.search(r'[^.]*\.csv$', filename):
+        return 'csv'
     
     return None
 

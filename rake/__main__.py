@@ -21,8 +21,8 @@ async def rakestart(config_file: str):
         print(e)
     finally:
         try:
-            rake.data(output=True)
             await rake.end()
+            rake.data(output=True)
         except ValueError as e:
             print(e)
 
