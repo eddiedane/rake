@@ -22,14 +22,14 @@ Rake is a simple yet powerful web scraping tool that allows you to configure and
    - [Concurrency](#concurrency-race)
 6. [Data Transformation](#data-transformation)
 7. [Portal Actions](#portal-actions)
-   - [Setup using `portal.py`](#setup-using-portalpy)
-   - [Setup using `dict`](#setup-using-dict)
+   - [Setup using portal.py](#setup-using-portalpy)
+   - [Setup using dict](#setup-using-dict)
    - [Portal Usage](#portal-usage)
 8. [Output Formats](#output-formats)
 9. [Special Notations](#special-notations)
    - [DOM Element Access](#dom-element-access)
    - [Variable Access](#variable-access)
-   - [Combining $attr{...} and $var{...}](#combining-attr-and-var)
+   - [Combining &dollar;attr{...} and &dollar;var{...}](#combining-attr-and-var)
    - [Links Name Reference](#links-name-reference)
    - [Data Scoping: Forming the structure of the data](#data-scoping-forming-the-structure-of-the-data)
 10. [License](#license)
@@ -674,7 +674,7 @@ Rake uses special notations to access and captured data and metadata. These nota
 
 ### DOM Element Access
 
-[&uarr; Back to Special Notations](#special-notations)
+[&uarr; Back to Table of Contents](#table-of-contents)
 
 Full notation:
 
@@ -734,14 +734,14 @@ This is a notation that aims to condense an simplify describing DOM nodes access
 
 ### Variable Access
 
-[&uarr; Back to Special Notations](#special-notations)
+[&uarr; Back to Table of Contents](#table-of-contents)
 
 - `$var{variable_name}`: Accesses a previously stored variable.
   - Example: `$var{product_title}` retrieves the value stored in the "product_title" variable.
 
 ### Combining $attr{...} and $var{...}
 
-[&uarr; Back to Special Notations](#special-notations)
+[&uarr; Back to Table of Contents](#table-of-contents)
 
 Rake allows you to combine the `$attr{...}` and `$var{...}` notations to create dynamic string values, which can be particularly useful for constructing URLs.
 
@@ -798,7 +798,7 @@ This would create a full name string by combining first name and last name attri
 
 ### Links Name Reference
 
-[&uarr; Back to Special Notations](#special-notations)
+[&uarr; Back to Table of Contents](#table-of-contents)
 Rake allows you to capture and reference groups of links for later crawling. This feature is particularly useful for scraping multiple similar pages e.g the product page.
 
 #### Capturing Links
