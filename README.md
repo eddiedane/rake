@@ -13,21 +13,26 @@ Rake is a simple yet powerful web scraping tool that allows you to configure and
 5. [Configuration](#configurations)
    - [Browser Settings](#browser-settings-browser)
    - [Logging](#logging-logging)
+   - [Portal](#portal-portal)
    - [Output Settings](#output-settings-output)
    - [Rake Pages](#rake-pages-rake)
    - [Interactions](#interactions-interact)
-   - [Collecting and Queueing Links](#collecting-and-queueing-links-links)
+   - [Capturing and Queuing Links](#capturing-and-queueing-links-links)
    - [Extracting Data](#extracting-data-data)
    - [Concurrency](#concurrency-race)
 6. [Data Transformation](#data-transformation)
-7. [Output Formats](#output-formats)
-8. [Special Notations](#special-notations)
+7. [Portal Actions](#portal-actions)
+   - [Setup using `portal.py`](#setup-using-portalpy)
+   - [Setup using `dict`](#setup-using-dict)
+   - [Portal Usage](#portal-usage)
+8. [Output Formats](#output-formats)
+9. [Special Notations](#special-notations)
    - [DOM Element Access](#dom-element-access)
    - [Variable Access](#variable-access)
    - [Combining $attr{...} and $var{...}](#combining-attr-and-var)
    - [Links Name Reference](#links-name-reference)
    - [Data Scoping: Forming the structure of the data](#data-scoping-forming-the-structure-of-the-data)
-9. [License](#license)
+10. [License](#license)
 
 ## Introduction
 
@@ -56,13 +61,13 @@ Rake is designed to simplify the process of web scraping by providing a configur
 
 1. Install Rake and its dependencies:
 
-```
+```zsh
 pip install rake-scraper
 ```
 
 2. Download the required browsers for Playwright:
 
-```
+```zsh
 playwright install
 ```
 
@@ -78,7 +83,7 @@ These steps will install Rake, all its dependencies, and download the necessary 
 
 1. Create a YAML configuration file defining your scraping task.
 
-```
+```yaml
 # example.com.yaml
 
 logging: true
@@ -100,12 +105,11 @@ rake:
                 title: $attr{text@H1}
                 description: $attr{text@P}
                 more_info: $attr{href@A}
-
 ```
 
 2. Run the Rake command-line tool, specifying your configuration file:
 
-```
+```zsh
 rakestart example.com.yaml
 ```
 
@@ -115,7 +119,7 @@ rakestart example.com.yaml
 
 [&uarr; Back to Table of Contents](#table-of-contents)
 
-```
+```python
 from rake import Rake
 
 # Loads config from file into a python dict
@@ -129,6 +133,9 @@ try:
   data = await rake.start()
 except Exception as e:
   ...
+finally:
+  # cleanup
+  await rake.end()
 ```
 
 ## Configurations
@@ -192,7 +199,7 @@ The `browser` configuration section allows you to customize the behavior of the 
 
 **Example configuration:**
 
-```
+```yaml
 browser:
   type: firefox
   show: true
@@ -213,11 +220,24 @@ The `logging` configuration option controls the verbosity of Rake's output durin
 
 **Example configuration:**
 
-```
+```yaml
 logging: true
-browser:
-  ...
+browser: ...
 ```
+
+### Portal `portal`
+
+[&uarr; Back to Table of Contents](#table-of-contents)
+
+The `portal` configuration option allows you to define custom functions that can be used throughout the automation process. These functions can be used to perform various tasks such as data transformation, link generation, and more.
+
+**Example:**
+
+```yaml
+portal: true
+```
+
+[See Portal Actions](#portal-actions)
 
 ### Output Settings `output`
 
@@ -240,13 +260,17 @@ The `output` configuration controls how and where Rake saves the scraped data. I
   - Supported formats:
     - `yaml`
     - `json`
+    - `csv`
     - `excel`
+    - and any other format using portal actions
   - Format object properties:
 
     - `type` (string): The format type (required)
+      a `:` can be used to specify the file extension, e.g. `csv:txt`, `no_extension:`
+
     - `transform` (string): Name of a custom python module with a `transform` function (optional)
 
-      ```
+      ```yaml
       # to_excel.py
 
       import pandas as pd
@@ -257,7 +281,7 @@ The `output` configuration controls how and where Rake saves the scraped data. I
 
 **Example configuration:**
 
-```
+```yaml
 output:
   path: outputs/
   name: example.com
@@ -292,11 +316,10 @@ The `rake` configuration defines the scraping behavior for each type page. It in
 
 **Example configuration:**
 
-```
+```yaml
 rake:
   - link: https://example.com
-    interact:
-      ...
+    interact: ...
 ```
 
 ### Interactions `interact`
@@ -331,7 +354,7 @@ The `interact` configuration defines how Rake interacts with elements on the pag
 
 **Example configuration:**
 
-```
+```yaml
 interact:
   repeat: 3
   nodes:
@@ -342,7 +365,7 @@ interact:
   ...
 ```
 
-### Collecting and Queueing Links `links`
+### Capturing and Queuing Links `links`
 
 [&uarr; Back to Table of Contents](#table-of-contents)
 
@@ -351,7 +374,7 @@ The `links` configuration allows Rake to collect and queue links from the elemen
 - `name` (string): The name to identify the collected links.
   **Example usage:**
 
-  ```
+  ```yaml
   # add links
   link:
     - name: products_page
@@ -363,12 +386,13 @@ The `links` configuration allows Rake to collect and queue links from the elemen
     ...
   ```
 
-- `url` (string): The URL or a JavaScript expression to evaluate and extract the link.
+- `url` (string): The URL or a JavaScript expression to evaluate and extract the link. (required)
+- `smith` (string): The name of a portal action to use on the link, to manipulate or generate multiple links.
 - `metadata` (object): Additional metadata to associate with the collected link. Each key-value pair can be:
   - `key` (string): The name of the metadata field.
   - `value` (string): The value or a JavaScript expression to evaluate and extract the metadata.
     **Example:**
-  ```
+  ```yaml
   metadata:
     category_name: '$attr{text@h1}'
     ...
@@ -376,7 +400,7 @@ The `links` configuration allows Rake to collect and queue links from the elemen
 
 **Example configuration:**
 
-```
+```yaml
 links:
   - name: collections
     url: $attr{href@a}
@@ -393,13 +417,13 @@ The `data` configuration allows Rake to extract and structure data from the elem
 - `scope` (string): The scope or path where the extracted data will be stored.
   **Example usage:**
 
-  ```
+  ```yaml
   scope: collections
   ```
 
   **Example with nested object:**
 
-  ```
+  ```yaml
   # product is an object
   scope: product.variant
 
@@ -412,13 +436,13 @@ The `data` configuration allows Rake to extract and structure data from the elem
 - `value` (string | list | object): The value to extract. It can be a string, a list of strings, or an object with key-value pairs where each value is a string or an object.
   **Example usage:**
 
-  ```
+  ```yaml
   value: $attr{text@h1}
   ```
 
   **Example with list:**
 
-  ```
+  ```yaml
   value:
     - $attr{text@h1}
     - $attr{href@a}
@@ -426,7 +450,7 @@ The `data` configuration allows Rake to extract and structure data from the elem
 
   **Example with object:**
 
-  ```
+  ```yaml
   value:
     name: $attr{text@h1}
     url: $attr{href@a}
@@ -445,7 +469,7 @@ The `race` configuration option controls how many links Rake will scrape concurr
 
 **Example:**
 
-```
+```yaml
 race: 5 # scrape 5 links concurrently
 ```
 
@@ -472,7 +496,7 @@ and return either `None` or the transformed data.
 
 **Example:**
 
-```
+```python
 # to_excel.py
 
 import pandas as pd
@@ -504,13 +528,131 @@ def transform(data, filepath):
 
 **Example:**
 
-```
+```yaml
 output:
   ...
   formats:
     - type: excel
       transform: to_excel
 ```
+
+## Portal Actions
+
+[&uarr; Back to Table of Contents](#table-of-contents)
+
+Portal actions are a way to extend and provide custom functions for use in various stages in the automation e.g. Custom file output and processing captured links etc.
+
+### Setup using `portal.py`
+
+[&uarr; Back to Table of Contents](#table-of-contents)
+
+Create a `portal.py` file in the root of your working directory.
+
+**Example:**
+
+```python
+# portal.py
+
+def to_html(data, filepath):
+  ...
+
+def generate_pagination_links(url, link_name):
+  ...
+
+def remove_currency(value):
+...
+```
+
+Then set the `portal` option in your configuration to `true`. Now you can use the functions in your configuration, by providing the function name and arguments where applicable.
+
+**Example:**
+
+```yaml
+portal: true # enable portal actions
+output:
+  name: example.com
+  path: outputs
+  formats:
+    - type: html
+      transform: to_html # the name of the function to use
+```
+
+### Setup using `dict`
+
+[&uarr; Back to Table of Contents](#table-of-contents)
+
+You can also setup portal actions using a `dict` in your configuration, by passing a dictionary of functions to the `portal` option.
+
+**Example:**
+
+```python
+from rake import Rake
+
+def to_html(data, filepath):
+  ...
+
+def generate_pagination_links(url, link_name):
+  ...
+
+def remove_currency(value):
+  ...
+
+rake = Rake({
+  'portal': {
+    'to_html': to_html,
+    'generate_pagination_links': generate_pagination_links
+  },
+  'output': {
+    'name': 'example.com',
+    'path': 'outputs',
+    'formats': [
+      {
+        'type': 'html',
+        'transform': 'to_html'
+      }
+    ]
+  }
+})
+```
+
+### Portal Usage
+
+[&uarr; Back to Table of Contents](#table-of-contents)
+
+Portal actions can be used in the:
+
+- Output formats `transform` option
+
+  **Example:**
+
+  ```yaml
+  output:
+    ...
+    formats:
+      - type: html
+        transform: to_html
+  ```
+
+- Link `smith` option
+
+  **Example:**
+
+  ```yaml
+  links:
+    - name: pagination_links
+      url: $attr{href}
+      smith: generate_pagination_links
+  ```
+
+- `$attr{...}` utility function
+
+  **Example:**
+
+  ```yaml
+  data:
+    - scope: product
+      value: $attr{text@.price | remove_currency}
+  ```
 
 ## Output Formats
 
@@ -520,7 +662,9 @@ Rake currently supports the following output formats:
 
 - `json`
 - `yaml`
+- `csv`
 - `excel`
+- Using portal actions, you can output any file format you want.
 
 ## Special Notations
 
