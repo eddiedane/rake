@@ -29,7 +29,7 @@ Rake is a simple yet powerful web scraping tool that allows you to configure and
 9. [Special Notations](#special-notations)
    - [DOM Element Access](#dom-element-access)
    - [Variable Access](#variable-access)
-   - [Combining &dollar;attr{...} and &dollar;var{...}](#combining-attr-and-var)
+   - [Combining Notations](#combining-notations)
    - [Links Name Reference](#links-name-reference)
    - [Data Scoping: Forming the structure of the data](#data-scoping-forming-the-structure-of-the-data)
 10. [License](#license)
@@ -739,7 +739,7 @@ This is a notation that aims to condense an simplify describing DOM nodes access
 - `$var{variable_name}`: Accesses a previously stored variable.
   - Example: `$var{product_title}` retrieves the value stored in the "product_title" variable.
 
-### Combining $attr{...} and $var{...}
+### Combining Notations
 
 [&uarr; Back to Table of Contents](#table-of-contents)
 
