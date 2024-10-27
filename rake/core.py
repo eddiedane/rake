@@ -447,8 +447,15 @@ class Rake:
                     for _ in range(repeat):
                         await self.__browse(interactions['nodes'])
                 elif type(repeat) is list:
-                    while await self.__should_repeat(repeat):
+                    should_repeat = True
+
+                    while True:
+                        if not should_repeat: break
+
+                        should_repeat = await self.__should_repeat(repeat)
+
                         await self.__browse(interactions['nodes'])
+
             else:
                 await self.__browse(interactions['nodes'])
 
