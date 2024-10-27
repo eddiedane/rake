@@ -161,13 +161,13 @@ def format_size(size: int) -> str:
     return f'{sz} {unit}'
 
 
-def portal_action(name: str, config: Dict | bool, portal_module: ModuleType) -> Callable:
+def portal_action(name: str, config: Dict | bool, portal_module: ModuleType | None) -> Callable:
     try:
         if portal_module:
             fn = getattr(portal_module, name)
-        elif type(config.get('portal', False)) is dict:
+        else:
             fn = config['portal'][name]
-
+        
         args_count = count_required_args(fn)
 
         return fn, args_count

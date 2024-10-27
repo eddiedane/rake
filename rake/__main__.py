@@ -16,15 +16,15 @@ async def rakestart(config_file: str):
     try:
         await rake.start()
     except TargetClosedError as e:
-        print(Fore.RED + 'Browser closed unexpectedly' + Fore.LIGHTBLACK_EX + ' (10)' + Fore.RESET)
+        print(Fore.RED + 'Browser closed unexpectedly' + Fore.LIGHTBLACK_EX + Fore.RESET)
     except Exception as e:
-        print(e, '(20)')
+        print(e)
     finally:
         try:
             rake.data(output=True)
             await rake.end()
         except ValueError as e:
-            print(e, '(30)')
+            print(e)
 
 
 if __name__ == '__main__':

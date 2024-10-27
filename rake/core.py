@@ -163,7 +163,9 @@ class Rake:
             for _ in tasks:
                 await queue.put(None)
 
-            await asyncio.gather(*tasks, return_exceptions=True)
+            for ret in await asyncio.gather(*tasks, return_exceptions=True):
+                if not isinstance(ret, Exception): continue
+                raise ret
 
 
     async def __concurrent(self, queue: asyncio.Queue, config: PageConfig) -> None:
@@ -391,7 +393,6 @@ class Rake:
                 kwargs['timeout'] = browser_config['timeout']
             
             await page.goto(url, **kwargs)
-
             await self.__interact(self.__config.get('interact'))
             await self.__close()
 
@@ -446,10 +447,7 @@ class Rake:
                         print(Fore.GREEN + 'Interacting with: ' + Fore.WHITE + Style.DIM + node['selector'] + Style.NORMAL + Fore.RESET)
 
                     if 'wait' in node:
-                        try:
-                            await locator.wait_for(timeout=node['wait'])
-                        except TimeoutError as e:
-                            raise e
+                        await locator.wait_for(timeout=node['wait'])
 
                     locs = await locator.all()
                     count = len(locs)
@@ -472,7 +470,8 @@ class Rake:
 
                         await self.__node_actions(node.get('actions', []), loc)
 
-                        if 'links' in node: await self.__add_links(loc, node['links'])
+                        if 'links' in node:
+                            await self.__add_links(loc, node['links'])
 
                         if 'data' in node:
                             await self.__extract_data(loc, node['data'], all)
@@ -619,6 +618,7 @@ class Rake:
         async def __add_links(self, loc: Locator, links: List[LinkConfig]) -> None:
             for link in links:
                 name = link['name']
+                smith = link.get('smith')
                 metadata: Dict = {}
                 result = await self.__evaluate(link['url'], loc)
 
@@ -627,27 +627,50 @@ class Rake:
 
                 if 'metadata' in link:
                     for key, value in link['metadata'].items():
-                        metadata[key] = await self.__evaluate(value, loc)
+                        if type(value) is str:
+                            metadata[key] = await self.__evaluate(value, loc)
+                        else:
+                            metadata[key] = await self.__attribute(value, loc)
 
                 if type(result) is not list:
                     result = [result]
 
                 for url in result:
                     state_links: List[Link] = self.__rake_state['links'][name]
-                    found_link = None
-                    
-                    for existing_link in state_links:
-                        if existing_link['url'] == url:
-                            found_link = existing_link
-                            break
+                    link_data = {'url': url, 'name': name, 'metadata': metadata}
 
-                    if not found_link:
-                        state_links.append({'url': url, 'name': name, 'metadata': metadata})
+                    if smith:
+                        fn, args_count = util.portal_action(smith, self.__rake_config, self.__portal)
+                        args = [url, name]
+                        smithed_links = fn(*args[0:args_count])
+                        
+                        if type(smithed_links) is not list:
+                            smithed_links = [smithed_links]
+
+                        link_data = smithed_links
+
+                    if type(link_data) is not list:
+                        link_data = [link_data]
+
+                    for link_item in link_data:
+                        if type(link_item) is str:
+                            link_item = {'url': link_item, 'name': name, 'metadata': metadata}
+                        else:
+                            link_item = util.pick(link_item, {'url', 'name', 'metadata'})
+
+                        found_link = None
+
+                        for existing_link in state_links:
+                            if existing_link['url'] == link_item['url']:
+                                found_link = existing_link
+                                break
+
+                        if found_link: continue
+
+                        state_links.append(link_item)
 
                         if self.__link.get('name') == name:
-                            await self.__queue.put({'url': url, 'name': name, 'metadata': metadata})
-                    # else:
-                    #     found_link['metadata'] = {**found_link['metadata'], **metadata}
+                            await self.__queue.put(link_item)
 
 
         async def __evaluate(self, string: str, loc: Locator) -> str | List[str]:
@@ -694,12 +717,15 @@ class Rake:
             else:
                 raise ValueError(Fore.RED + 'Invalid attribute type definition, only dict and str allowed at ' + Fore.WHITE + (selector or self.__vars['_node']) + Fore.RESET)
 
-            if not attr : raise ValueError(Fore.RED + 'Attribute to extract not define at ' + Fore.WHITE + (selector or self.__vars['_node']) + Fore.RESET)
+            if not attr:
+                raise ValueError(Fore.RED + 'Attribute to extract not define at ' + Fore.WHITE + (selector or self.__vars['_node']) + Fore.RESET)
 
             if selector:
                 match ctx:
-                    case 'parent': locs = await loc.locator(selector).all()
-                    case 'page': locs = await loc.page.locator(selector).all()
+                    case 'parent':
+                        locs = await loc.locator(selector).all()
+                    case 'page':
+                        locs = await loc.page.locator(selector).all()
 
             if attr == 'count': return int(self.__apply_utils(utils, len(locs)))
 
