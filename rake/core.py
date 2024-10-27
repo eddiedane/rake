@@ -312,6 +312,13 @@ class Rake:
                     df = pd.DataFrame(data)
                     df.to_excel(filepath, index=False)
 
+            case _:
+                if transform_fn:
+                    if self.__config.get('logging', Rake.DEFAULT_LOGGING):
+                        print(Fore.GREEN + f'Outputting {state} to {filetype}: ' + Fore.BLUE + filepath + Fore.RESET)
+
+                    transform_fn(*transform_args[0:count_args])
+
 
     def __get_outputs(self) ->  List[Dict[str, str]]:
         output_path: str = self.__config.get('output', {}).get('path', './')
@@ -336,10 +343,16 @@ class Rake:
             else:
                 format_config = format.copy()
 
-            if format_config['type'] not in format_file_extension:
-                continue
+            type_parts = format_config['type'].split(':')
+            format_config['type'] = type_parts[0]
+            file_extension = type_parts[1] if len(type_parts) > 1 else ''
+            # to support empty file extension e.g. CSV:
+            file_extension = file_extension if len(type_parts) > 1 else format_file_extension.get(format_config['type'].lower(), '')
+            file_extension = f'.{file_extension}' if file_extension else ''
+            format_config['path'] = f'{output_path}{output_name}{file_extension}'
 
-            format_config['path'] = f'{output_path}{output_name}.{format_file_extension[format_config['type'].lower()]}'
+            if format_config['type'].lower() in format_file_extension:
+                format_config['type'] = format_config['type'].lower()
             
             resolved_formats.append(format_config)
 
