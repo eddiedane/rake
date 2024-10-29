@@ -32,7 +32,7 @@ async def rakestart(config_file: str):
     except KeyError as e:
         print(Fore.RED + 'Invalid configuration, missing key:' + Fore.LIGHTBLACK_EX + f' {e}' + Fore.RESET)
     except Exception as e:
-        print(e.__class__, e)
+        print(e)
     finally:
         try:
             await rake.end()

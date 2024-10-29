@@ -234,12 +234,11 @@ class Rake:
 
         for url in urls:
             if type(url) is dict:
-                # exclude internally set keys e.g. parent
                 links.append(pick(url, {"url", "name", "metadata"}))
             elif url[0] == '$':
                 links += self.__state['links'].get(url[1:], [])
             else:
-                links.append({'url': url, 'name': '', 'metadata': {}})
+                links.append({'url': url, 'name': url, 'metadata': {}})
 
         return links
     
@@ -625,6 +624,7 @@ class Rake:
                     for key, attr in config['value'].items():
                         if type(attr) is str:
                             value[key] = await self.__evaluate(attr, loc)
+
                             continue
 
                         value[key] = await self.__attribute(attr, loc)
@@ -705,22 +705,23 @@ class Rake:
 
 
         async def __evaluate(self, string: str, loc: Locator) -> str | List[str]:
-            list_string = []
+            string_value = string
             getters = notation.parse_getters(string)
 
             for full_match, typ, var_name in getters:
                 value = full_match
 
                 match typ:
-                    case 'attr': value = await self.__attribute(var_name, loc)
-                    case 'var': value = str(self.__var(var_name, full_match))
+                    case 'attr':
+                        value = await self.__attribute(var_name, loc)
+                        if full_match == string: return value
+                    case 'var':
+                        value = str(self.__var(var_name, full_match))
+                        if full_match == string: return value
 
-                if type(value) is not list:
-                    string = re.sub(re.escape(full_match), str(value), string)
-                else:
-                    list_string += value
+                string_value = re.sub(re.escape(full_match), '' if value is None else str(value), string_value)
 
-            return string if not len(list_string) else list_string
+            return string_value
 
 
         async def __attribute(self, node_attr: Attribute, loc: Locator) -> str | List:
@@ -819,6 +820,8 @@ class Rake:
                         value = value.split('?')[0]
                     case 'trim':
                         value = value.strip()
+                    case 'nullify':
+                        if not value: value = None
                     case _:
                         fn, _ = util.portal_action(name.strip(), self.__rake_config, self.__portal)
                         value = fn(value, *args)
