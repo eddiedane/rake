@@ -16,7 +16,7 @@ Config = Dict[Literal['browser', 'rake', 'output', 'logging', 'race'], Dict[str,
 
 PageConfig = Dict[Literal['link', 'interact'], str | Dict[str, Any]]
 
-NodeConfig = Dict[Literal['selector', 'all', 'range', 'links', 'data', 'interact', 'actions', 'wait', 'contains', 'excludes'], int | str | bool | List | Dict]
+NodeConfig = Dict[Literal['element', 'all', 'range', 'links', 'data', 'interact', 'actions', 'wait', 'contains', 'excludes'], int | str | bool | List | Dict]
 
 InteractConfig = Dict[Literal['repeat', 'nodes'], int | List[Dict[str, Any]] | Dict[str, Any]]
 
@@ -32,7 +32,7 @@ Links = Dict[str, List[Link]]
 
 State = Dict[Literal['data', 'vars', 'links'], Dict[str, Any]]
 
-Attribute = str | Dict[Literal['attribute', 'child_node', 'context', 'all', 'selector', 'utils', 'var'], str | bool | List[str]]
+Attribute = str | Dict[Literal['attribute', 'child_node', 'context', 'all', 'element', 'utils', 'var'], str | bool | List[str]]
 
 DOMRect = Dict[Literal['x', 'y', 'width', 'height', 'top', 'right', 'bottom', 'left'], float]
 
@@ -465,17 +465,17 @@ class Rake:
                 alts = alts if type(alts) == list else [alts]
 
                 for node in alts:
-                    self.__vars['_node'] = re.sub(':', '-', node.get('name', node['selector']))
+                    self.__vars['_node'] = re.sub(':', '-', node.get('name', node['element']))
                     loc_kwargs = {}
 
                     if 'contains' in node: loc_kwargs['has_text'] = node['contains']
 
                     if 'excludes' in node: loc_kwargs['has_not_text'] = node['excludes']
 
-                    locator: Locator = self.__page.locator(node['selector'], **loc_kwargs)
+                    locator: Locator = self.__page.locator(node['element'], **loc_kwargs)
 
                     if self.__rake_config.get('logging', Rake.DEFAULT_LOGGING):
-                        print(Fore.GREEN + 'Interacting with: ' + Fore.WHITE + Style.DIM + node['selector'] + Style.NORMAL + Fore.RESET)
+                        print(Fore.GREEN + 'Interacting with: ' + Fore.WHITE + Style.DIM + node['element'] + Style.NORMAL + Fore.RESET)
 
                     if 'wait' in node:
                         await locator.wait_for(timeout=node['wait'])
@@ -732,7 +732,7 @@ class Rake:
                 result = notation.parse_value(node_attr)
                 attr = result.get('prop')
                 child_node = result.get('child_node')
-                selector = result.get('selector')
+                element = result.get('element')
                 max = result.get('max')
                 ctx = result.get('ctx')
                 utils = result.get('parsed_utils')
@@ -740,23 +740,23 @@ class Rake:
             elif type(node_attr) is dict:
                 attr = node_attr.get('attribute')
                 child_node = node_attr.get('child_node')
-                selector = node_attr.get('selector')
+                element = node_attr.get('element')
                 max = node_attr.get('max', 'one')
                 ctx = node_attr.get('context', 'parent')
                 utils = node_attr.get('utils', {})
                 var_name = node_attr.get('set_var')
             else:
-                raise ValueError(Fore.RED + 'Invalid attribute type definition, only dict and str allowed at ' + Fore.WHITE + (selector or self.__vars['_node']) + Fore.RESET)
+                raise ValueError(Fore.RED + 'Invalid attribute type definition, only dict and str allowed at ' + Fore.WHITE + (element or self.__vars['_node']) + Fore.RESET)
 
             if not attr:
-                raise ValueError(Fore.RED + 'Attribute to extract not define at ' + Fore.WHITE + (selector or self.__vars['_node']) + Fore.RESET)
+                raise ValueError(Fore.RED + 'Attribute to extract not define at ' + Fore.WHITE + (element or self.__vars['_node']) + Fore.RESET)
 
-            if selector:
+            if element:
                 match ctx:
                     case 'parent':
-                        locs = await loc.locator(selector).all()
+                        locs = await loc.locator(element).all()
                     case 'page':
-                        locs = await loc.page.locator(selector).all()
+                        locs = await loc.page.locator(element).all()
 
             if attr == 'count': return int(self.__apply_utils(utils, len(locs)))
 
@@ -788,7 +788,7 @@ class Rake:
         def __var(self, name: str, default: Any = None) -> Any:
             result = notation.parse_value(name, set_defaults=False)
 
-            if not is_none_keys(result, 'child_node', 'ctx', 'max', 'selector'):
+            if not is_none_keys(result, 'child_node', 'ctx', 'max', 'element'):
                 raise ValueError(Fore.RED + 'Invalid $var{...} notation at ' + Fore.CYAN + name + Fore.RESET)
 
             if result['prop'] in self.__vars:

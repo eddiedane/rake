@@ -29,8 +29,10 @@ async def rakestart(config_file: str):
         await rake.start()
     except TargetClosedError as e:
         print(Fore.RED + 'Browser closed unexpectedly' + Fore.LIGHTBLACK_EX + Fore.RESET)
+    except KeyError as e:
+        print(Fore.RED + 'Invalid configuration, missing key:' + Fore.LIGHTBLACK_EX + f' {e}' + Fore.RESET)
     except Exception as e:
-        print(e)
+        print(e.__class__, e)
     finally:
         try:
             await rake.end()

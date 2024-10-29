@@ -3,7 +3,7 @@ from typing import Dict, List, Literal, Tuple
 from colorama import Fore
 
 
-ParseValueData = Dict[Literal['prop', 'child_node', 'ctx', 'selector', 'max', 'utils', 'parsed_utils', 'var'], int | str | Dict[str, List[str]] | None]
+ParseValueData = Dict[Literal['prop', 'child_node', 'ctx', 'element', 'max', 'utils', 'parsed_utils', 'var'], int | str | Dict[str, List[str]] | None]
 KeyMatchData = Dict[Literal['is_left_var', 'left_operand', 'operator', 'is_right_var', 'right_operand'], str]
 
 
@@ -12,23 +12,23 @@ def parse_value(string: str, set_defaults: bool = True) -> ParseValueData:
     Parse a value notation string into its parts.
 
     The format of the string is as follows:
-    [prop[:child(n)]]@[<page|parent>[.all|first]>selector[|utils >> var]
+    [prop[:child(n)]]@[<page|parent>[.all|first]>element[|utils >> var]
 
     Where:
     - prop is the name of the property to get (e.g. 'text', 'attr', etc.)
     - child(n) is an optional child node index to get (e.g. 'child(0)')
-    - page|parent is an optional context to get the selector from (e.g. 'page', 'parent')
+    - page|parent is an optional context to get the element from (e.g. 'page', 'parent')
     - all|first is an optional maximum number of nodes to get (e.g. 'all', 'first')
-    - selector is the selector to get (e.g. 'h1', 'div.title')
+    - element is the element to get (e.g. 'h1', 'div.title')
     - utils is an optional list of utilities to apply to the value (e.g. 'trim', 'lowercase', etc.)
     - var is an optional variable name to assign the result to (e.g. 'title')
 
     The function returns a dictionary with the following keys:
     - prop: the name of the property to get
     - child_node: the child node index to get (if any)
-    - ctx: the context to get the selector from (page or parent)
+    - ctx: the context to get the element from (page or parent)
     - max: the maximum number of nodes to get (all or first)
-    - selector: the selector to get
+    - element: the element to get
     - utils: the list of utilities to apply to the value
     - parsed_utils: the parsed list of utilities
     - var: the variable name to assign the result to (if any)
@@ -37,18 +37,18 @@ def parse_value(string: str, set_defaults: bool = True) -> ParseValueData:
     that are not present in the input string.
     """
     
-    value_re = r'(?:(?P<prop>\w+)(?::child\((?P<child_node>\d+)\))?)\s*(?:@\s*(?:<(?P<ctx>page|parent)(?:\.(?P<max>all|one))?>)?(?P<selector>[^|<]+))?(?:\s*\|\s*(?P<utils>\w+(?:\s+[^>]+)*))*\s*(?:>>\s*(?P<var>\w+))?'
+    value_re = r'(?:(?P<prop>\w+)(?::child\((?P<child_node>\d+)\))?)\s*(?:@\s*(?:<(?P<ctx>page|parent)(?:\.(?P<max>all|one))?>)?(?P<element>[^|<]+))?(?:\s*\|\s*(?P<utils>\w+(?:\s+[^>]+)*))*\s*(?:>>\s*(?P<var>\w+))?'
     match = re.fullmatch(value_re, string)
 
     if not match:
-        return {'prop': None, 'ctx': None, 'selector': None, 'utils': None, 'parsed_utils': []}
+        return {'prop': None, 'ctx': None, 'element': None, 'utils': None, 'parsed_utils': []}
     
     data: ParseValueData = match.groupdict()
     
     if set_defaults:
         data['prop'] = (data['prop'] or '').strip()
         data['child_node'] = int(data['child_node']) if data['child_node'] else None
-        data['selector'] = (data['selector'] or '').strip()
+        data['element'] = (data['element'] or '').strip()
         data['utils'] = (data['utils'] or '').strip()
         data['ctx'] = data['ctx'] or 'parent'
         data['max'] = data['max'] or 'one'
