@@ -38,14 +38,14 @@ Rake is a simple yet powerful web scraping tool that allows you to configure and
 
 [&uarr; Back to Table of Contents](#table-of-contents)
 
-Rake is designed to simplify the process of web scraping by providing a configuration-based approach. It allows users to define scraping tasks using YAML files, making it easy to specify selectors, interactions, and data extraction rules without writing complex code.
+Rake is designed to simplify the process of web scraping by providing a configuration-based approach. It allows users to define scraping tasks using YAML files or plain old Python dictionaries, making it easy to interact with web pages by simply targeting elements with css selectors or XPath, specifying interactions, and extracting data without writing complex code.
 
 ## Features
 
 [&uarr; Back to Table of Contents](#table-of-contents)
 
 - **YAML Configuration**: Define scraping tasks using simple and readable YAML files.
-- **Flexible Selectors**: Use CSS selectors to target specific elements on web pages.
+- **Flexible Selectors**: Use CSS selectors or XPath to target specific elements on web pages.
 - **Interactive Scraping**: Perform clicks, form submissions, and other interactions during the scraping process.
 - **Pagination Support**: Easily navigate through multiple pages of content.
 - **Data Extraction**: Extract text, attributes, and custom data from web pages.
@@ -98,7 +98,7 @@ rake:
   - link: https://example.com
     interact:
       nodes:
-        - selector: body
+        - element: body
           data:
             - scope: data
               value:
@@ -311,7 +311,12 @@ The `rake` configuration defines the scraping behavior for each type page. It in
 
   - `repeat` (number or object): Specifies how many times or under what conditions to repeat the interactions.
     - Example number: `3`
-    - Example object: `{ selector: ".load-more", disabled: false }`
+    - Example object:
+      ```yaml
+      repeat:
+        while: [is, false]
+        value: $attr{disabled@button}
+      ```
   - `nodes` (array): A list of node configurations for interacting with page elements.
 
 **Example configuration:**
@@ -335,7 +340,7 @@ The `interact` configuration defines how Rake interacts with elements on the pag
 
 - `nodes` (array): A list of node configurations for interacting with page elements. Each node can have:
 
-  - `selector` (string): CSS selector for the element to interact with.
+  - `element` (string): CSS selector or XPath for the element to interact with.
   - `all` (boolean): Whether to interact with all matching elements or just the first one.
   - `show` (boolean): Whether to scroll the element into view before interacting.
   - `actions` (array): List of actions to perform on the element. Each action can be:
@@ -358,7 +363,7 @@ The `interact` configuration defines how Rake interacts with elements on the pag
 interact:
   repeat: 3
   nodes:
-    - selector: .pagination-item-next-page
+    - element: .pagination-item-next-page
       wait: 1000
       actions:
         - type: click
@@ -678,7 +683,7 @@ Rake uses special notations to access and captured data and metadata. These nota
 
 Full notation:
 
-`$attr{attribute:child(n)<page|parent.all|first>@selector | util arg | another_util >> set_var}`
+`$attr{attribute:child(n)<page|parent.all|first>@element | util arg | another_util >> set_var}`
 
 Lets break it down:
 
@@ -702,7 +707,7 @@ Lets break it down:
    - `.all`: Selects all matching elements instead of just the first one
    - `.first`: Selects only the first matching element (default behavior if not specified)
 
-5. `@selector` (optional): The CSS selector used to find the element(s) on the page.
+5. `@element` (optional): The CSS selector or XPath used to find the element(s) on the page.
 
    - Example: `@div.product-title` selects elements with class "product-title"
 
@@ -810,14 +815,14 @@ rake:
   - link: https://example.com/category-1
     interact:
       nodes:
-        - selector: a.product-page
+        - element: a.product-page
           all: true
           links:
             - name: product_pages
               url: $attr{href}
 ```
 
-In this example, all links matching the `a.product-page` selector will be captured and stored under the name "product_pages".
+In this example, all links matching the `a.product-page` css selector will be captured and stored under the name "product_pages".
 
 #### Referencing Captured Links
 
@@ -828,7 +833,7 @@ rake:
   - link: $product_pages
     interact:
       nodes:
-        - selector: .product
+        - element: .product
           data:
             - scope: products
               value:
@@ -847,21 +852,21 @@ rake:
   - link: https://example.com/categories
     interact:
       nodes:
-        - selector: .category-link
+        - element: .category-link
           links:
             - name: category_pages
               url: $attr{href}
   - link: $category_pages
     interact:
       nodes:
-        - selector: .product-link
+        - element: .product-link
           links:
             - name: product_pages
               url: $attr{href}
   - link: $product_pages
     interact:
       nodes:
-        - selector: .product-details
+        - element: .product-details
           data:
             - scope: products
               value:
