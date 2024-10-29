@@ -3,7 +3,7 @@ import pypandoc
 
 setup(
     name='rake-python',
-    version='0.1.7',
+    version='0.1.9',
     author='Eddie Dane',
     description='Rake is a simple yet powerful web scraping tool that allows you to configure and execute complex and repetitive scraping tasks with ease and little to no code.',
     long_description=pypandoc.convert_file('README.md', 'rst'),
