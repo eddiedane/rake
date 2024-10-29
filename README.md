@@ -62,7 +62,7 @@ Rake is designed to simplify the process of web scraping by providing a configur
 1. Install Rake and its dependencies:
 
 ```zsh
-pip install rake-scraper
+pip install rake-python
 ```
 
 2. Download the required browsers for Playwright:
